@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -209,6 +211,108 @@ def get_runtime_objects():
     return model, class_names, transform, target_layer
 
 
+@st.cache_data(show_spinner=False)
+def run_analysis(
+    image_bytes: bytes,
+    explain_method: str,
+    score_type: str,
+    ig_steps: int,
+    ig_internal_batch_size: int,
+    ig_blur_radius: float,
+    occ_patch_size: int,
+    occ_stride: int,
+    occ_blur_radius: float,
+    lime_n_samples: int,
+    lime_perturbations_per_eval: int,
+    lime_n_segments: int,
+    lime_compactness: float,
+    lime_sigma: float,
+    lime_blur_radius: float,
+    lime_random_seed: int,
+) -> dict[str, Any]:
+    pil_image = load_image(image_bytes)
+    model, class_names, transform, target_layer = get_runtime_objects()
+    input_batch = preprocess_pil_image(pil_image, transform)
+    prediction = predict(model, input_batch, class_names, top_k=TOP_K)
+
+    if explain_method == "Grad-CAM":
+        gradcam = GradCAM(model, target_layer)
+        try:
+            cam = gradcam.generate(
+                input_batch,
+                target_class=prediction.predicted_index,
+                score_type=score_type,
+            )
+        finally:
+            gradcam.close()
+    elif explain_method == "Integrated Gradients":
+        cam = generate_integrated_gradients(
+            model=model,
+            input_tensor=input_batch,
+            image=pil_image,
+            transform=transform,
+            target_class=prediction.predicted_index,
+            score_type=score_type,
+            n_steps=ig_steps,
+            internal_batch_size=ig_internal_batch_size,
+            blur_radius=ig_blur_radius,
+        )
+    elif explain_method == "Occlusion":
+        cam = generate_occlusion(
+            model=model,
+            input_tensor=input_batch,
+            image=pil_image,
+            transform=transform,
+            target_class=prediction.predicted_index,
+            score_type=score_type,
+            patch_size=occ_patch_size,
+            stride=occ_stride,
+            blur_radius=occ_blur_radius,
+        )
+    else:
+        cam = generate_lime(
+            model=model,
+            input_tensor=input_batch,
+            image=pil_image,
+            transform=transform,
+            target_class=prediction.predicted_index,
+            score_type=score_type,
+            n_samples=lime_n_samples,
+            perturbations_per_eval=lime_perturbations_per_eval,
+            n_segments=lime_n_segments,
+            compactness=lime_compactness,
+            sigma=lime_sigma,
+            blur_radius=lime_blur_radius,
+            random_seed=lime_random_seed,
+        )
+
+    heatmap_rgb = apply_colormap_to_cam(cam)
+    original_rgb = np.array(pil_image)
+    overlay_rgb = overlay_cam_on_image(
+        original_rgb,
+        heatmap_rgb,
+        alpha=CAM_OVERLAY_ALPHA,
+    )
+
+    topk_rows = [
+        {
+            "Rank": rank,
+            "Class Index": item.class_index,
+            "Class Name": item.class_name,
+            "Probability (%)": round(item.probability * 100, 4),
+        }
+        for rank, item in enumerate(prediction.topk, start=1)
+    ]
+
+    return {
+        "predicted_class": prediction.predicted_class,
+        "confidence": prediction.confidence,
+        "heatmap_rgb": heatmap_rgb,
+        "overlay_rgb": overlay_rgb,
+        "topk_rows": topk_rows,
+    }
+
+
 uploaded_file = st.file_uploader(
     "Upload an image",
     type=["jpg", "jpeg", "png", "bmp", "webp"],
@@ -219,92 +323,42 @@ if uploaded_file is None:
     st.stop()
 
 try:
-    pil_image = load_image(uploaded_file)
+    image_bytes = uploaded_file.getvalue()
+    pil_image = load_image(image_bytes)
 except Exception as exc:
     st.error(f"Could not read the image file: {exc}")
     st.stop()
 
 try:
     with st.spinner("Running inference and generating explanations..."):
-        model, class_names, transform, target_layer = get_runtime_objects()
-        input_batch = preprocess_pil_image(pil_image, transform)
-
-        prediction = predict(model, input_batch, class_names, top_k=TOP_K)
-
-        if explain_method == "Grad-CAM":
-            gradcam = GradCAM(model, target_layer)
-            try:
-                cam = gradcam.generate(
-                    input_batch,
-                    target_class=prediction.predicted_index,
-                    score_type=score_type,
-                )
-            finally:
-                gradcam.close()
-        elif explain_method == "Integrated Gradients":
-            cam = generate_integrated_gradients(
-                model=model,
-                input_tensor=input_batch,
-                image=pil_image,
-                transform=transform,
-                target_class=prediction.predicted_index,
-                score_type=score_type,
-                n_steps=ig_steps,
-                internal_batch_size=ig_internal_batch_size,
-                blur_radius=ig_blur_radius,
-            )
-        elif explain_method == "Occlusion":
-            cam = generate_occlusion(
-                model=model,
-                input_tensor=input_batch,
-                image=pil_image,
-                transform=transform,
-                target_class=prediction.predicted_index,
-                score_type=score_type,
-                patch_size=occ_patch_size,
-                stride=occ_stride,
-                blur_radius=occ_blur_radius,
-            )
-        else:
-            cam = generate_lime(
-                model=model,
-                input_tensor=input_batch,
-                image=pil_image,
-                transform=transform,
-                target_class=prediction.predicted_index,
-                score_type=score_type,
-                n_samples=lime_n_samples,
-                perturbations_per_eval=lime_perturbations_per_eval,
-                n_segments=lime_n_segments,
-                compactness=lime_compactness,
-                sigma=lime_sigma,
-                blur_radius=lime_blur_radius,
-                random_seed=lime_random_seed,
-            )
-
-        heatmap_rgb = apply_colormap_to_cam(cam)
-        original_rgb = np.array(pil_image)
-        overlay_rgb = overlay_cam_on_image(
-            original_rgb,
-            heatmap_rgb,
-            alpha=CAM_OVERLAY_ALPHA,
+        analysis = run_analysis(
+            image_bytes=image_bytes,
+            explain_method=explain_method,
+            score_type=score_type,
+            ig_steps=ig_steps,
+            ig_internal_batch_size=ig_internal_batch_size,
+            ig_blur_radius=float(ig_blur_radius),
+            occ_patch_size=occ_patch_size,
+            occ_stride=occ_stride,
+            occ_blur_radius=float(occ_blur_radius),
+            lime_n_samples=lime_n_samples,
+            lime_perturbations_per_eval=lime_perturbations_per_eval,
+            lime_n_segments=lime_n_segments,
+            lime_compactness=float(lime_compactness),
+            lime_sigma=float(lime_sigma),
+            lime_blur_radius=float(lime_blur_radius),
+            lime_random_seed=int(lime_random_seed),
         )
 except Exception as exc:
     st.error("An error occurred during analysis.")
     st.exception(exc)
     st.stop()
 
-top5_df = pd.DataFrame(
-    [
-        {
-            "Rank": rank,
-            "Class Index": item.class_index,
-            "Class Name": item.class_name,
-            "Probability (%)": round(item.probability * 100, 4),
-        }
-        for rank, item in enumerate(prediction.topk, start=1)
-    ]
-)
+predicted_class = str(analysis["predicted_class"])
+confidence = float(analysis["confidence"])
+heatmap_rgb = np.array(analysis["heatmap_rgb"])
+overlay_rgb = np.array(analysis["overlay_rgb"])
+top5_df = pd.DataFrame(analysis["topk_rows"])
 
 summary_col, preview_col = st.columns([1.25, 1], gap="large")
 
@@ -312,9 +366,9 @@ with summary_col:
     st.subheader("Prediction")
     metric_col1, metric_col2 = st.columns([2.2, 1], gap="medium")
     with metric_col1:
-        st.success(f"Predicted class: {prediction.predicted_class}")
+        st.success(f"Predicted class: {predicted_class}")
     with metric_col2:
-        st.metric("Confidence", f"{prediction.confidence * 100:.2f}%")
+        st.metric("Confidence", f"{confidence * 100:.2f}%")
     st.caption(f"Method: `{explain_method}` | Score type: `{score_type}`")
     st.subheader("Top-5 Classes")
     st.dataframe(top5_df, use_container_width=True, hide_index=True, height=215)
