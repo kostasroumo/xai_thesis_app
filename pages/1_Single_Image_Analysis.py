@@ -371,7 +371,7 @@ with summary_col:
         st.metric("Confidence", f"{confidence * 100:.2f}%")
     st.caption(f"Method: `{explain_method}` | Score type: `{score_type}`")
     st.subheader("Top-5 Classes")
-    st.dataframe(top5_df, use_container_width=True, hide_index=True, height=215)
+    st.dataframe(top5_df, width="stretch", hide_index=True, height=215)
 
 with preview_col:
     st.subheader("Uploaded Image")
