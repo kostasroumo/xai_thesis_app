@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import streamlit as st
+from PIL import Image
 
 from src.data.preprocessing import (
     get_inference_transform,
@@ -19,6 +20,8 @@ from src.models.class_names import get_imagenet_class_names
 from src.models.loader import get_last_conv_layer, load_model
 from src.models.predictor import predict
 from src.utils.config import (
+    ANALYSIS_CACHE_MAX_ENTRIES,
+    ANALYSIS_CACHE_TTL_SECONDS,
     CAM_OVERLAY_ALPHA,
     CAM_SCORE_TYPE_DEFAULT,
     IG_BASELINE_BLUR_RADIUS_DEFAULT,
@@ -34,6 +37,7 @@ from src.utils.config import (
     OCC_BASELINE_BLUR_RADIUS_DEFAULT,
     OCC_PATCH_SIZE_DEFAULT,
     OCC_STRIDE_DEFAULT,
+    MAX_UI_IMAGE_SIDE,
     TOP_K,
 )
 from src.visualization.heatmaps import (
@@ -211,7 +215,26 @@ def get_runtime_objects():
     return model, class_names, transform, target_layer
 
 
-@st.cache_data(show_spinner=False)
+def resize_for_display(image: Image.Image, max_side: int = MAX_UI_IMAGE_SIDE) -> Image.Image:
+    width, height = image.size
+    longest_side = max(width, height)
+    if longest_side <= max_side:
+        return image
+
+    scale = max_side / float(longest_side)
+    new_size = (
+        max(1, int(round(width * scale))),
+        max(1, int(round(height * scale))),
+    )
+    resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+    return image.resize(new_size, resample=resample)
+
+
+@st.cache_data(
+    show_spinner=False,
+    ttl=ANALYSIS_CACHE_TTL_SECONDS,
+    max_entries=ANALYSIS_CACHE_MAX_ENTRIES,
+)
 def run_analysis(
     image_bytes: bytes,
     explain_method: str,
@@ -231,6 +254,7 @@ def run_analysis(
     lime_random_seed: int,
 ) -> dict[str, Any]:
     pil_image = load_image(image_bytes)
+    display_image = resize_for_display(pil_image)
     model, class_names, transform, target_layer = get_runtime_objects()
     input_batch = preprocess_pil_image(pil_image, transform)
     prediction = predict(model, input_batch, class_names, top_k=TOP_K)
@@ -287,7 +311,7 @@ def run_analysis(
         )
 
     heatmap_rgb = apply_colormap_to_cam(cam)
-    original_rgb = np.array(pil_image)
+    original_rgb = np.array(display_image)
     overlay_rgb = overlay_cam_on_image(
         original_rgb,
         heatmap_rgb,
@@ -307,6 +331,7 @@ def run_analysis(
     return {
         "predicted_class": prediction.predicted_class,
         "confidence": prediction.confidence,
+        "display_image": np.array(display_image),
         "heatmap_rgb": heatmap_rgb,
         "overlay_rgb": overlay_rgb,
         "topk_rows": topk_rows,
@@ -324,7 +349,7 @@ if uploaded_file is None:
 
 try:
     image_bytes = uploaded_file.getvalue()
-    pil_image = load_image(image_bytes)
+    pil_image = resize_for_display(load_image(image_bytes))
 except Exception as exc:
     st.error(f"Could not read the image file: {exc}")
     st.stop()
@@ -356,6 +381,7 @@ except Exception as exc:
 
 predicted_class = str(analysis["predicted_class"])
 confidence = float(analysis["confidence"])
+pil_image = Image.fromarray(np.array(analysis["display_image"]).astype(np.uint8))
 heatmap_rgb = np.array(analysis["heatmap_rgb"])
 overlay_rgb = np.array(analysis["overlay_rgb"])
 top5_df = pd.DataFrame(analysis["topk_rows"])
