@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import gc
+import hashlib
+from collections import OrderedDict
 from typing import Any
 
 import numpy as np
@@ -21,7 +24,6 @@ from src.models.loader import get_last_conv_layer, load_model
 from src.models.predictor import predict
 from src.utils.config import (
     ANALYSIS_CACHE_MAX_ENTRIES,
-    ANALYSIS_CACHE_TTL_SECONDS,
     CAM_OVERLAY_ALPHA,
     CAM_SCORE_TYPE_DEFAULT,
     IG_BASELINE_BLUR_RADIUS_DEFAULT,
@@ -215,6 +217,55 @@ def get_runtime_objects():
     return model, class_names, transform, target_layer
 
 
+def get_session_analysis_cache() -> OrderedDict[str, dict[str, Any]]:
+    cache = st.session_state.get("analysis_cache")
+    if not isinstance(cache, OrderedDict):
+        cache = OrderedDict()
+        st.session_state["analysis_cache"] = cache
+    return cache
+
+
+def build_analysis_key(
+    image_bytes: bytes,
+    explain_method: str,
+    score_type: str,
+    ig_steps: int,
+    ig_internal_batch_size: int,
+    ig_blur_radius: float,
+    occ_patch_size: int,
+    occ_stride: int,
+    occ_blur_radius: float,
+    lime_n_samples: int,
+    lime_perturbations_per_eval: int,
+    lime_n_segments: int,
+    lime_compactness: float,
+    lime_sigma: float,
+    lime_blur_radius: float,
+    lime_random_seed: int,
+) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(image_bytes)
+    params = (
+        explain_method,
+        score_type,
+        ig_steps,
+        ig_internal_batch_size,
+        round(ig_blur_radius, 4),
+        occ_patch_size,
+        occ_stride,
+        round(occ_blur_radius, 4),
+        lime_n_samples,
+        lime_perturbations_per_eval,
+        lime_n_segments,
+        round(lime_compactness, 4),
+        round(lime_sigma, 4),
+        round(lime_blur_radius, 4),
+        lime_random_seed,
+    )
+    hasher.update(str(params).encode("utf-8"))
+    return hasher.hexdigest()
+
+
 def resize_for_display(image: Image.Image, max_side: int = MAX_UI_IMAGE_SIDE) -> Image.Image:
     width, height = image.size
     longest_side = max(width, height)
@@ -230,11 +281,6 @@ def resize_for_display(image: Image.Image, max_side: int = MAX_UI_IMAGE_SIDE) ->
     return image.resize(new_size, resample=resample)
 
 
-@st.cache_data(
-    show_spinner=False,
-    ttl=ANALYSIS_CACHE_TTL_SECONDS,
-    max_entries=ANALYSIS_CACHE_MAX_ENTRIES,
-)
 def run_analysis(
     image_bytes: bytes,
     explain_method: str,
@@ -254,7 +300,6 @@ def run_analysis(
     lime_random_seed: int,
 ) -> dict[str, Any]:
     pil_image = load_image(image_bytes)
-    display_image = resize_for_display(pil_image)
     model, class_names, transform, target_layer = get_runtime_objects()
     input_batch = preprocess_pil_image(pil_image, transform)
     prediction = predict(model, input_batch, class_names, top_k=TOP_K)
@@ -310,13 +355,7 @@ def run_analysis(
             random_seed=lime_random_seed,
         )
 
-    heatmap_rgb = apply_colormap_to_cam(cam)
-    original_rgb = np.array(display_image)
-    overlay_rgb = overlay_cam_on_image(
-        original_rgb,
-        heatmap_rgb,
-        alpha=CAM_OVERLAY_ALPHA,
-    )
+    cam_uint8 = (np.clip(cam, 0.0, 1.0) * 255.0).astype(np.uint8)
 
     topk_rows = [
         {
@@ -327,21 +366,23 @@ def run_analysis(
         }
         for rank, item in enumerate(prediction.topk, start=1)
     ]
-
-    return {
+    result = {
         "predicted_class": prediction.predicted_class,
         "confidence": prediction.confidence,
-        "display_image": np.array(display_image),
-        "heatmap_rgb": heatmap_rgb,
-        "overlay_rgb": overlay_rgb,
+        "cam_uint8": cam_uint8,
         "topk_rows": topk_rows,
     }
+
+    del input_batch, prediction, cam, cam_uint8
+    gc.collect()
+    return result
 
 
 uploaded_file = st.file_uploader(
     "Upload an image",
     type=["jpg", "jpeg", "png", "bmp", "webp"],
 )
+run_clicked = st.button("Run analysis", type="primary")
 
 if uploaded_file is None:
     st.info("Please upload an image to begin.")
@@ -354,36 +395,75 @@ except Exception as exc:
     st.error(f"Could not read the image file: {exc}")
     st.stop()
 
-try:
-    with st.spinner("Running inference and generating explanations..."):
-        analysis = run_analysis(
-            image_bytes=image_bytes,
-            explain_method=explain_method,
-            score_type=score_type,
-            ig_steps=ig_steps,
-            ig_internal_batch_size=ig_internal_batch_size,
-            ig_blur_radius=float(ig_blur_radius),
-            occ_patch_size=occ_patch_size,
-            occ_stride=occ_stride,
-            occ_blur_radius=float(occ_blur_radius),
-            lime_n_samples=lime_n_samples,
-            lime_perturbations_per_eval=lime_perturbations_per_eval,
-            lime_n_segments=lime_n_segments,
-            lime_compactness=float(lime_compactness),
-            lime_sigma=float(lime_sigma),
-            lime_blur_radius=float(lime_blur_radius),
-            lime_random_seed=int(lime_random_seed),
-        )
-except Exception as exc:
-    st.error("An error occurred during analysis.")
-    st.exception(exc)
+analysis_key = build_analysis_key(
+    image_bytes=image_bytes,
+    explain_method=explain_method,
+    score_type=score_type,
+    ig_steps=ig_steps,
+    ig_internal_batch_size=ig_internal_batch_size,
+    ig_blur_radius=float(ig_blur_radius),
+    occ_patch_size=occ_patch_size,
+    occ_stride=occ_stride,
+    occ_blur_radius=float(occ_blur_radius),
+    lime_n_samples=lime_n_samples,
+    lime_perturbations_per_eval=lime_perturbations_per_eval,
+    lime_n_segments=lime_n_segments,
+    lime_compactness=float(lime_compactness),
+    lime_sigma=float(lime_sigma),
+    lime_blur_radius=float(lime_blur_radius),
+    lime_random_seed=int(lime_random_seed),
+)
+analysis_cache = get_session_analysis_cache()
+analysis = analysis_cache.get(analysis_key)
+
+if run_clicked:
+    try:
+        with st.spinner("Running inference and generating explanations..."):
+            analysis = run_analysis(
+                image_bytes=image_bytes,
+                explain_method=explain_method,
+                score_type=score_type,
+                ig_steps=ig_steps,
+                ig_internal_batch_size=ig_internal_batch_size,
+                ig_blur_radius=float(ig_blur_radius),
+                occ_patch_size=occ_patch_size,
+                occ_stride=occ_stride,
+                occ_blur_radius=float(occ_blur_radius),
+                lime_n_samples=lime_n_samples,
+                lime_perturbations_per_eval=lime_perturbations_per_eval,
+                lime_n_segments=lime_n_segments,
+                lime_compactness=float(lime_compactness),
+                lime_sigma=float(lime_sigma),
+                lime_blur_radius=float(lime_blur_radius),
+                lime_random_seed=int(lime_random_seed),
+            )
+    except Exception as exc:
+        st.error("An error occurred during analysis.")
+        st.exception(exc)
+        st.stop()
+
+    analysis_cache[analysis_key] = analysis
+    analysis_cache.move_to_end(analysis_key)
+    while len(analysis_cache) > ANALYSIS_CACHE_MAX_ENTRIES:
+        analysis_cache.popitem(last=False)
+
+if analysis is None:
+    st.subheader("Uploaded Image")
+    st.image(pil_image, width=image_width)
+    st.info("Choose method/settings and click `Run analysis`.")
     st.stop()
+elif not run_clicked:
+    st.caption("Showing cached result for current image and settings.")
 
 predicted_class = str(analysis["predicted_class"])
 confidence = float(analysis["confidence"])
-pil_image = Image.fromarray(np.array(analysis["display_image"]).astype(np.uint8))
-heatmap_rgb = np.array(analysis["heatmap_rgb"])
-overlay_rgb = np.array(analysis["overlay_rgb"])
+cam = np.array(analysis["cam_uint8"]).astype(np.float32) / 255.0
+heatmap_rgb = apply_colormap_to_cam(cam)
+overlay_rgb = overlay_cam_on_image(
+    np.array(pil_image),
+    heatmap_rgb,
+    alpha=CAM_OVERLAY_ALPHA,
+)
 top5_df = pd.DataFrame(analysis["topk_rows"])
 
 summary_col, preview_col = st.columns([1.25, 1], gap="large")

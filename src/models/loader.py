@@ -19,6 +19,14 @@ def load_model(
     device: Optional[torch.device] = None,
     weights: ResNet50_Weights = DEFAULT_WEIGHTS,
 ) -> tuple[nn.Module, ResNet50_Weights]:
+    # Keep CPU threading conservative for cloud stability.
+    torch.set_num_threads(1)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        # Can be raised if called after parallel work has started.
+        pass
+
     model = build_model(weights=weights)
     resolved_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(resolved_device)

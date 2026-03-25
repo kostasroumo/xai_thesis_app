@@ -1,6 +1,9 @@
 streamlit
-torch
-torchvision
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.11.0+cpu; platform_system == "Linux"
+torchvision==0.26.0+cpu; platform_system == "Linux"
+torch==2.11.0; platform_system != "Linux"
+torchvision==0.26.0; platform_system != "Linux"
 captum
 numpy
 pandas
