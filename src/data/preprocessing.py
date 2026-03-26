@@ -8,8 +8,6 @@ import torch
 from PIL import Image, UnidentifiedImageError
 from torchvision.models import ResNet50_Weights
 
-from src.utils.config import DEFAULT_WEIGHTS
-
 ImageInput = Union[str, Path, bytes, bytearray, BinaryIO]
 
 
@@ -29,7 +27,7 @@ def load_image(image_input: ImageInput) -> Image.Image:
 
 
 def get_inference_transform(
-    weights: ResNet50_Weights = DEFAULT_WEIGHTS,
+    weights: ResNet50_Weights = ResNet50_Weights.DEFAULT,
 ) -> Callable[[Image.Image], torch.Tensor]:
     return weights.transforms()
 

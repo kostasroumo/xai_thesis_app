@@ -6,10 +6,7 @@ import torch
 import torch.nn as nn
 from torchvision.models import ResNet50_Weights, resnet50
 
-from src.utils.config import DEFAULT_WEIGHTS
-
-
-def build_model(weights: ResNet50_Weights = DEFAULT_WEIGHTS) -> nn.Module:
+def build_model(weights: ResNet50_Weights = ResNet50_Weights.DEFAULT) -> nn.Module:
     model = resnet50(weights=weights)
     model.eval()
     return model
@@ -17,7 +14,7 @@ def build_model(weights: ResNet50_Weights = DEFAULT_WEIGHTS) -> nn.Module:
 
 def load_model(
     device: Optional[torch.device] = None,
-    weights: ResNet50_Weights = DEFAULT_WEIGHTS,
+    weights: ResNet50_Weights = ResNet50_Weights.DEFAULT,
 ) -> tuple[nn.Module, ResNet50_Weights]:
     # Keep CPU threading conservative for cloud stability.
     torch.set_num_threads(1)

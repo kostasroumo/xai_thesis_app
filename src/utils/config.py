@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from torchvision.models import ResNet50_Weights
-
-DEFAULT_WEIGHTS = ResNet50_Weights.DEFAULT
 TOP_K = 5
 CAM_OVERLAY_ALPHA = 0.45
 CAM_SCORE_TYPE_DEFAULT = "logit"
