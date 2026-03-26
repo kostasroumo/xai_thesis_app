@@ -19,6 +19,11 @@ A Streamlit-based Explainable AI application for image analysis using a pretrain
   - `Sensitivity`: Drop Top, Drop Random Mean, Sensitivity score
   - `Sparsity`: Hoyer sparsity on superpixel scores
   - `Robustness` (optional): Spearman + IoU@Top-K on noisy re-explanations
+- Adds an interpretation layer on top of the heatmaps:
+  - Deterministic explanation summary text
+  - Simplified focus view for the top regions
+  - Side-by-side comparison across selected methods
+  - Mini quality pane using the current per-image metrics
 
 ## Run The Project
 
