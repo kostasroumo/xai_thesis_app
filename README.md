@@ -14,6 +14,11 @@ A Streamlit-based Explainable AI application for image analysis using a pretrain
   - `Occlusion`
   - `LIME` (SLIC superpixels)
 - Generates heatmap and overlay visualization for the selected method
+- Computes per-image XAI metrics dashboard (inspired by your Colab protocol):
+  - `Faithfulness`: Deletion AUC, Insertion AUC, AOPC
+  - `Sensitivity`: Drop Top, Drop Random Mean, Sensitivity score
+  - `Sparsity`: Hoyer sparsity on superpixel scores
+  - `Robustness` (optional): Spearman + IoU@Top-K on noisy re-explanations
 
 ## Run The Project
 
@@ -28,6 +33,7 @@ streamlit run app.py
 
 - The first run downloads official ResNet50 pretrained weights.
 - `LIME` can be slower than other methods; reduce `LIME samples` in the UI for faster runs.
+- `Robustness` metrics are optional and slower because they require one extra explanation run.
 
 ## Deploy For Public Access (Streamlit Community Cloud)
 
