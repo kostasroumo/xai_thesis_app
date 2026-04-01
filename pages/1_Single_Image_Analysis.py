@@ -603,6 +603,11 @@ def metric_to_display(value: float | None, digits: int = 3) -> str:
 
 st.title("Single Image Analysis")
 st.write("Upload one image to run classification, inspect explanations, and compare how different methods justify the same prediction.")
+st.caption(
+    "Model context: the dashboard uses the official ImageNet-pretrained ResNet50. "
+    "If you analyze Oxford-IIIT Pet images here, the explanations refer to the ImageNet model's "
+    "prediction behavior on those images, not to an Oxford-trained breed classifier."
+)
 
 control_col1, control_col2 = st.columns([1.2, 1.8], gap="large")
 with control_col1:
@@ -1056,7 +1061,7 @@ else:
         render_kpi_card(
             "Confidence",
             f"{float(selected_analysis['confidence']) * 100:.1f}%",
-            "Model confidence for the predicted ImageNet class.",
+            "Model confidence for the class predicted by the ImageNet-pretrained ResNet50.",
         )
     with quality_cols_1[1]:
         render_kpi_card(

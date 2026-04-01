@@ -2,6 +2,17 @@
 
 A Streamlit-based Explainable AI application for image analysis using a pretrained torchvision ResNet50 model on ImageNet classes.
 
+## Research Context
+
+This app is aligned with the current thesis setup:
+
+- The classifier is the official pretrained `ResNet50` from `torchvision`, trained on `ImageNet`.
+- The app can be used with general natural images and with Oxford-IIIT Pet images as case-study inputs.
+- When Oxford-IIIT Pet images are uploaded, the explanations still describe the reasoning of the `ImageNet` model.
+- The app is not an Oxford-trained pet-breed classifier because no Oxford fine-tuned checkpoint is loaded.
+
+If you later want Oxford-specific breed prediction, the app will need a separate fine-tuned model checkpoint and a 37-class mapping.
+
 ## What The App Does
 
 - Loads official pretrained `ResNet50` weights from `torchvision`
@@ -37,6 +48,7 @@ streamlit run app.py
 ## Notes
 
 - The first run downloads official ResNet50 pretrained weights.
+- Predictions and explanations always refer to the ImageNet-pretrained model that powers the dashboard.
 - `LIME` can be slower than other methods; reduce `LIME samples` in the UI for faster runs.
 - `Robustness` metrics are optional and slower because they require one extra explanation run.
 
