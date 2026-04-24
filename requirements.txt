@@ -5,7 +5,7 @@ torchvision==0.26.0+cpu; platform_system == "Linux"
 torch==2.11.0; platform_system != "Linux"
 torchvision==0.26.0; platform_system != "Linux"
 captum
-numpy
+numpy==1.26.4
 pandas
 pillow
 opencv-python-headless

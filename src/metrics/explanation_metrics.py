@@ -223,8 +223,12 @@ def compute_explanation_metrics(
             _target_score(model=model, input_tensor=x_ins, target_class=target_class, score_type=score_type)
         )
 
-    deletion_auc = float(np.trapz(np.asarray(deletion_scores, dtype=np.float64), xs))
-    insertion_auc = float(np.trapz(np.asarray(insertion_scores, dtype=np.float64), xs))
+    trapz_fn = getattr(np, "trapezoid", None)
+    if trapz_fn is None:
+        trapz_fn = np.trapz
+
+    deletion_auc = float(trapz_fn(np.asarray(deletion_scores, dtype=np.float64), xs))
+    insertion_auc = float(trapz_fn(np.asarray(insertion_scores, dtype=np.float64), xs))
     aopc_delta = float(insertion_auc - deletion_auc)
 
     n_top = min(int(settings.sensitivity_top_n), n_segments)
