@@ -114,11 +114,18 @@ st.markdown(
     .xai-hero {
         background: var(--hero-bg);
         border: 1px solid rgba(106, 73, 41, 0.13);
-        border-radius: 26px;
-        padding: 1.45rem 1.35rem;
-        box-shadow: 0 16px 38px rgba(92, 64, 36, 0.10);
+        border-radius: 24px;
+        padding: 1.15rem 1.2rem;
+        box-shadow: 0 14px 30px rgba(92, 64, 36, 0.08);
         color: var(--panel-text);
-        margin-bottom: 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    .xai-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.85fr);
+        gap: 1rem;
+        align-items: start;
     }
 
     .xai-hero-kicker {
@@ -132,10 +139,10 @@ st.markdown(
 
     .xai-hero-title {
         font-family: "Fraunces", serif;
-        font-size: 2.35rem;
-        line-height: 1.03;
-        margin: 0 0 0.55rem 0;
-        max-width: 12ch;
+        font-size: 1.95rem;
+        line-height: 1.08;
+        margin: 0 0 0.45rem 0;
+        max-width: 17ch;
     }
 
     .xai-hero-copy {
@@ -184,6 +191,32 @@ st.markdown(
 
     .xai-callout strong {
         color: var(--accent);
+    }
+
+    .xai-hero-side {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .xai-hero-pill {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(106, 73, 41, 0.11);
+        border-radius: 16px;
+        padding: 0.85rem 0.9rem;
+    }
+
+    .xai-hero-pill strong {
+        display: block;
+        font-size: 0.92rem;
+        margin-bottom: 0.18rem;
+        color: var(--panel-text);
+    }
+
+    .xai-hero-pill span {
+        display: block;
+        color: #5b4d3f;
+        font-size: 0.9rem;
+        line-height: 1.45;
     }
 
     .xai-panel {
@@ -272,6 +305,12 @@ st.markdown(
         font-size: 0.94rem;
         margin-top: -0.15rem;
         margin-bottom: 0.85rem;
+    }
+
+    @media (max-width: 900px) {
+        .xai-hero-grid {
+            grid-template-columns: 1fr;
+        }
     }
     </style>
     """,
@@ -706,13 +745,31 @@ def render_hero() -> None:
     st.markdown(
         """
         <div class="xai-hero">
-            <div class="xai-hero-kicker">Single Image Demo</div>
-            <div class="xai-hero-title">Inspect one prediction through multiple explanation lenses.</div>
-            <p class="xai-hero-copy">
-                Upload an image, choose a primary explainer, and examine both the visual explanation and the
-                superpixel-based quality metrics. The main view is now organized for faster demos, while the
-                sidebar keeps the advanced controls close at hand.
-            </p>
+            <div class="xai-hero-grid">
+                <div>
+                    <div class="xai-hero-kicker">Single Image Demo</div>
+                    <div class="xai-hero-title">Inspect one prediction with explanation, metrics, and comparison.</div>
+                    <p class="xai-hero-copy">
+                        Upload one image, choose a primary explainer, and inspect the visual output together with the
+                        superpixel-based quality metrics. The main area is focused on the result, while the sidebar keeps
+                        the advanced controls tidy and out of the way.
+                    </p>
+                </div>
+                <div class="xai-hero-side">
+                    <div class="xai-hero-pill">
+                        <strong>Primary explainer</strong>
+                        <span>Select the method you want to study in detail for the current image.</span>
+                    </div>
+                    <div class="xai-hero-pill">
+                        <strong>Metrics tab</strong>
+                        <span>Open the quantitative readout without cluttering the overview screen.</span>
+                    </div>
+                    <div class="xai-hero-pill">
+                        <strong>Compare tab</strong>
+                        <span>See where multiple explainers agree or diverge on the same prediction.</span>
+                    </div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,

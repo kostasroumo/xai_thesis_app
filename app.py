@@ -22,14 +22,21 @@ st.markdown(
 
     .xai-home-hero {
         background:
-            radial-gradient(circle at top left, rgba(229, 168, 94, 0.22), transparent 34%),
+            radial-gradient(circle at top left, rgba(229, 168, 94, 0.18), transparent 34%),
             linear-gradient(135deg, #f6f1e8 0%, #fffaf3 48%, #f3ede4 100%);
         border: 1px solid rgba(116, 84, 49, 0.14);
-        border-radius: 26px;
-        padding: 1.5rem 1.45rem;
-        box-shadow: 0 18px 40px rgba(87, 64, 37, 0.10);
+        border-radius: 24px;
+        padding: 1.2rem 1.25rem;
+        box-shadow: 0 14px 30px rgba(87, 64, 37, 0.08);
         color: #241d17;
         margin-bottom: 1.15rem;
+    }
+
+    .xai-home-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.9fr);
+        gap: 1rem;
+        align-items: start;
     }
 
     .xai-home-kicker {
@@ -43,10 +50,10 @@ st.markdown(
 
     .xai-home-title {
         font-family: "Fraunces", serif;
-        font-size: 2.3rem;
-        line-height: 1.05;
-        margin: 0 0 0.6rem 0;
-        max-width: 11ch;
+        font-size: 1.95rem;
+        line-height: 1.08;
+        margin: 0 0 0.5rem 0;
+        max-width: 16ch;
     }
 
     .xai-home-copy {
@@ -62,6 +69,32 @@ st.markdown(
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 0.9rem;
         margin-top: 1rem;
+    }
+
+    .xai-home-side {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .xai-home-pill {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(116, 84, 49, 0.12);
+        border-radius: 16px;
+        padding: 0.85rem 0.9rem;
+    }
+
+    .xai-home-pill strong {
+        display: block;
+        font-size: 0.92rem;
+        color: #2a211a;
+        margin-bottom: 0.18rem;
+    }
+
+    .xai-home-pill span {
+        display: block;
+        color: #5d4d40;
+        font-size: 0.9rem;
+        line-height: 1.45;
     }
 
     .xai-home-card {
@@ -83,6 +116,11 @@ st.markdown(
         color: #57493d;
         font-size: 0.95rem;
     }
+    @media (max-width: 900px) {
+        .xai-home-hero-grid {
+            grid-template-columns: 1fr;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -91,13 +129,31 @@ st.markdown(
 st.markdown(
     """
     <div class="xai-home-hero">
-        <div class="xai-home-kicker">Interactive Demo</div>
-        <div class="xai-home-title">Explore how image explainers justify a prediction.</div>
-        <p class="xai-home-copy">
-            This app uses the official pretrained ResNet50 on ImageNet and lets you inspect one image at a time
-            with Grad-CAM, Integrated Gradients, Occlusion, and LIME. It is designed as a guided demo: upload an
-            image, choose an explainer, then inspect the visual explanation and per-image metrics.
-        </p>
+        <div class="xai-home-hero-grid">
+            <div>
+                <div class="xai-home-kicker">Interactive Demo</div>
+                <div class="xai-home-title">Explore how image explainers justify a prediction.</div>
+                <p class="xai-home-copy">
+                    This app uses the official pretrained ResNet50 on ImageNet and lets you inspect one image at a time
+                    with Grad-CAM, Integrated Gradients, Occlusion, and LIME. It is designed as a guided demo: upload an
+                    image, choose an explainer, then inspect the visual explanation and per-image metrics.
+                </p>
+            </div>
+            <div class="xai-home-side">
+                <div class="xai-home-pill">
+                    <strong>Visual explanations</strong>
+                    <span>Overlay and heatmap views for one uploaded image at a time.</span>
+                </div>
+                <div class="xai-home-pill">
+                    <strong>Per-image metrics</strong>
+                    <span>Faithfulness, sensitivity, sparsity, robustness, and runtime.</span>
+                </div>
+                <div class="xai-home-pill">
+                    <strong>Method comparison</strong>
+                    <span>Compare multiple explainers on the same prediction inside one run.</span>
+                </div>
+            </div>
+        </div>
         <div class="xai-home-grid">
             <div class="xai-home-card">
                 <h4>1. Upload an image</h4>
