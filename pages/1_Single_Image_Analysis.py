@@ -77,8 +77,13 @@ st.set_page_config(page_title="Single Image Analysis", layout="wide")
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap');
+
     :root {
         --panel-bg: linear-gradient(135deg, #f6f2ea 0%, #fffaf2 100%);
+        --hero-bg:
+            radial-gradient(circle at top left, rgba(229, 168, 94, 0.20), transparent 34%),
+            linear-gradient(135deg, #f6f0e6 0%, #fff8f1 48%, #f0e8dd 100%);
         --panel-line: rgba(106, 73, 41, 0.12);
         --panel-text: #2a221b;
         --accent: #b65f2c;
@@ -87,9 +92,98 @@ st.markdown(
         --card-bg: rgba(255, 255, 255, 0.88);
     }
 
+    html, body, [class*="css"] {
+        font-family: "Manrope", sans-serif;
+    }
+
+    h1, h2, h3 {
+        font-family: "Fraunces", serif;
+        letter-spacing: -0.02em;
+    }
+
     .block-container {
         padding-top: 1.0rem;
-        padding-bottom: 1.3rem;
+        padding-bottom: 1.6rem;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #fbf7f2 0%, #f3ebe1 100%);
+        border-right: 1px solid rgba(106, 73, 41, 0.08);
+    }
+
+    .xai-hero {
+        background: var(--hero-bg);
+        border: 1px solid rgba(106, 73, 41, 0.13);
+        border-radius: 26px;
+        padding: 1.45rem 1.35rem;
+        box-shadow: 0 16px 38px rgba(92, 64, 36, 0.10);
+        color: var(--panel-text);
+        margin-bottom: 1.1rem;
+    }
+
+    .xai-hero-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.76rem;
+        color: #9f5a29;
+        font-weight: 800;
+        margin-bottom: 0.45rem;
+    }
+
+    .xai-hero-title {
+        font-family: "Fraunces", serif;
+        font-size: 2.35rem;
+        line-height: 1.03;
+        margin: 0 0 0.55rem 0;
+        max-width: 12ch;
+    }
+
+    .xai-hero-copy {
+        margin: 0;
+        max-width: 70ch;
+        line-height: 1.62;
+        color: #43372b;
+        font-size: 1rem;
+    }
+
+    .xai-step-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.9rem;
+        margin-top: 1rem;
+    }
+
+    .xai-step-card {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(106, 73, 41, 0.12);
+        border-radius: 18px;
+        padding: 0.95rem;
+        min-height: 120px;
+    }
+
+    .xai-step-card h4 {
+        margin: 0 0 0.4rem 0;
+        color: var(--panel-text);
+    }
+
+    .xai-step-card p {
+        margin: 0;
+        color: #5e4e41;
+        line-height: 1.55;
+        font-size: 0.95rem;
+    }
+
+    .xai-callout {
+        background: rgba(255, 250, 243, 0.95);
+        border: 1px solid rgba(106, 73, 41, 0.12);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        margin-bottom: 1rem;
+        color: var(--panel-text);
+    }
+
+    .xai-callout strong {
+        color: var(--accent);
     }
 
     .xai-panel {
@@ -171,6 +265,13 @@ st.markdown(
         font-weight: 700;
         color: var(--panel-text);
         margin-bottom: 0.45rem;
+    }
+
+    .xai-section-note {
+        color: #6b594b;
+        font-size: 0.94rem;
+        margin-top: -0.15rem;
+        margin-bottom: 0.85rem;
     }
     </style>
     """,
@@ -601,71 +702,122 @@ def metric_to_display(value: float | None, digits: int = 3) -> str:
     return f"{float(value):.{digits}f}"
 
 
-st.title("Single Image Analysis")
-st.write("Upload one image to run classification, inspect explanations, and compare how different methods justify the same prediction.")
+def render_hero() -> None:
+    st.markdown(
+        """
+        <div class="xai-hero">
+            <div class="xai-hero-kicker">Single Image Demo</div>
+            <div class="xai-hero-title">Inspect one prediction through multiple explanation lenses.</div>
+            <p class="xai-hero-copy">
+                Upload an image, choose a primary explainer, and examine both the visual explanation and the
+                superpixel-based quality metrics. The main view is now organized for faster demos, while the
+                sidebar keeps the advanced controls close at hand.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_step_cards() -> None:
+    st.markdown(
+        """
+        <div class="xai-step-grid">
+            <div class="xai-step-card">
+                <h4>1. Load an image</h4>
+                <p>Use the left sidebar to upload one image that you want to analyze.</p>
+            </div>
+            <div class="xai-step-card">
+                <h4>2. Choose an explainer</h4>
+                <p>Pick a primary method and optionally add comparison methods for side-by-side viewing.</p>
+            </div>
+            <div class="xai-step-card">
+                <h4>3. Run the analysis</h4>
+                <p>Inspect the explanation, then open the metrics and comparison tabs for a deeper readout.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_focus_panel(method_name: str, region_analysis: RegionAnalysis) -> None:
+    chips = [
+        f"Top-{len(region_analysis.top_region_ids)} mass: {region_analysis.top_mass * 100:.1f}%",
+        f"Concentration: {region_analysis.concentration_label}",
+        f"Focus: {region_analysis.top_region_summary}",
+    ]
+    if region_analysis.leakage_flag:
+        chips.append(f"Border leakage: {region_analysis.border_mass * 100:.1f}%")
+    chip_html = "".join(f'<span class="xai-chip">{item}</span>' for item in chips)
+    st.markdown(
+        f"""
+        <div class="xai-panel">
+            <h4>Why This Prediction?</h4>
+            <p>The most influential regions identified by {method_name} are concentrated around {region_analysis.top_region_summary}.</p>
+            <div class="xai-chip-row">{chip_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if region_analysis.leakage_flag:
+        st.warning("The explanation places noticeable mass near the image borders, so background cues may still contribute.")
+
+
+render_hero()
 st.caption(
-    "Model context: the dashboard uses the official ImageNet-pretrained ResNet50. "
-    "If you analyze Oxford-IIIT Pet images here, the explanations refer to the ImageNet model's "
-    "prediction behavior on those images, not to an Oxford-trained breed classifier."
+    "Model context: this dashboard uses the official ImageNet-pretrained ResNet50. "
+    "If you analyze Oxford-IIIT Pet images here, the explanations still refer to the ImageNet model's "
+    "prediction behavior on those inputs."
 )
 
-control_col1, control_col2 = st.columns([1.2, 1.8], gap="large")
-with control_col1:
+with st.sidebar:
+    st.markdown("## Demo Controls")
+    uploaded_file = st.file_uploader(
+        "1. Upload an image",
+        type=["jpg", "jpeg", "png", "bmp", "webp"],
+    )
     explain_method = st.selectbox(
-        "Primary explainer",
+        "2. Primary explainer",
         options=AVAILABLE_METHODS,
         index=0,
     )
-    score_type = st.radio(
-        "Score type",
-        options=["logit", "prob"],
-        index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
-        horizontal=True,
-        help="Use class logit score or softmax probability score for explanation.",
-    )
-with control_col2:
     comparison_selection = st.multiselect(
-        "Comparison methods",
+        "3. Comparison methods",
         options=AVAILABLE_METHODS,
         default=[explain_method],
         max_selections=COMPARISON_LIMIT,
         help="Select up to three methods for side-by-side comparison.",
     )
-    visual_col1, visual_col2, visual_col3 = st.columns([1.1, 1, 1], gap="medium")
-    with visual_col1:
-        visual_style = st.radio(
-            "Explanation style",
-            options=["Raw overlay", "Simplified focus"],
-            horizontal=True,
-        )
-    with visual_col2:
-        view_mode = st.radio(
-            "Main layout",
-            options=["Tabs", "Side by side"],
-            horizontal=True,
-        )
-    with visual_col3:
-        image_size_label = st.select_slider(
-            "Image size",
-            options=["Small", "Medium", "Large"],
-            value="Medium",
-        )
+    score_type = st.radio(
+        "Score type",
+        options=["logit", "prob"],
+        index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
+        help="Use class logit score or softmax probability score for explanation.",
+    )
 
-comparison_methods: list[str] = []
-for method_name in [explain_method, *comparison_selection]:
-    if method_name not in comparison_methods:
-        comparison_methods.append(method_name)
-comparison_methods = comparison_methods[:COMPARISON_LIMIT]
-
-image_width_map = {"Small": 300, "Medium": 420, "Large": 540}
-image_width = image_width_map[image_size_label]
-overlay_alpha = st.slider(
-    "Overlay opacity",
-    min_value=0.1,
-    max_value=0.9,
-    value=float(CAM_OVERLAY_ALPHA),
-    step=0.05,
-)
+    st.markdown("---")
+    st.markdown("### View Options")
+    visual_style = st.radio(
+        "Explanation style",
+        options=["Raw overlay", "Simplified focus"],
+    )
+    view_mode = st.radio(
+        "Overview layout",
+        options=["Tabs", "Side by side"],
+    )
+    image_size_label = st.select_slider(
+        "Image size",
+        options=["Small", "Medium", "Large"],
+        value="Medium",
+    )
+    overlay_alpha = st.slider(
+        "Overlay opacity",
+        min_value=0.1,
+        max_value=0.9,
+        value=float(CAM_OVERLAY_ALPHA),
+        step=0.05,
+    )
 
 ig_steps = IG_STEPS_DEFAULT
 ig_internal_batch_size = IG_INTERNAL_BATCH_SIZE_DEFAULT
@@ -696,184 +848,195 @@ sensitivity_blur_radius = METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT
 compute_robustness = METRICS_ROBUSTNESS_ENABLED_DEFAULT
 robustness_noise_sigma = METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT
 
-with st.expander("Method settings", expanded=False):
-    if explain_method == "Integrated Gradients":
-        ig_steps = st.slider("IG steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
-        ig_internal_batch_size = st.slider(
-            "IG internal batch size",
-            min_value=1,
-            max_value=64,
-            value=IG_INTERNAL_BATCH_SIZE_DEFAULT,
-            step=1,
-        )
-        ig_blur_radius = st.slider(
-            "IG baseline blur radius",
-            min_value=0.0,
-            max_value=15.0,
-            value=float(IG_BASELINE_BLUR_RADIUS_DEFAULT),
-            step=0.5,
-        )
-    elif explain_method == "Occlusion":
-        occ_patch_size = st.slider(
-            "Occlusion patch size",
-            min_value=4,
-            max_value=64,
-            value=OCC_PATCH_SIZE_DEFAULT,
-            step=2,
-        )
-        occ_stride = st.slider(
-            "Occlusion stride",
-            min_value=1,
-            max_value=32,
-            value=OCC_STRIDE_DEFAULT,
-            step=1,
-        )
-        occ_blur_radius = st.slider(
-            "Occlusion baseline blur radius",
-            min_value=0.0,
-            max_value=15.0,
-            value=float(OCC_BASELINE_BLUR_RADIUS_DEFAULT),
-            step=0.5,
-        )
-    elif explain_method == "LIME":
-        lime_n_samples = st.slider(
-            "LIME samples",
-            min_value=100,
-            max_value=2000,
-            value=LIME_N_SAMPLES_DEFAULT,
-            step=50,
-        )
-        lime_perturbations_per_eval = st.slider(
-            "LIME perturbations per eval",
-            min_value=16,
-            max_value=256,
-            value=LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
-            step=16,
-        )
-        lime_n_segments = st.slider(
-            "LIME SLIC segments",
-            min_value=20,
-            max_value=300,
-            value=LIME_N_SEGMENTS_DEFAULT,
-            step=10,
-        )
-        lime_compactness = st.slider(
-            "LIME SLIC compactness",
-            min_value=1.0,
-            max_value=40.0,
-            value=float(LIME_COMPACTNESS_DEFAULT),
-            step=0.5,
-        )
-        lime_sigma = st.slider(
-            "LIME SLIC sigma",
-            min_value=0.0,
-            max_value=5.0,
-            value=float(LIME_SIGMA_DEFAULT),
-            step=0.1,
-        )
-        lime_blur_radius = st.slider(
-            "LIME baseline blur radius",
-            min_value=0.0,
-            max_value=15.0,
-            value=float(LIME_BASELINE_BLUR_RADIUS_DEFAULT),
-            step=0.5,
-        )
-        lime_random_seed = st.number_input(
-            "LIME random seed",
+with st.sidebar:
+    with st.expander("Method settings", expanded=False):
+        if explain_method == "Integrated Gradients":
+            ig_steps = st.slider("IG steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
+            ig_internal_batch_size = st.slider(
+                "IG internal batch size",
+                min_value=1,
+                max_value=64,
+                value=IG_INTERNAL_BATCH_SIZE_DEFAULT,
+                step=1,
+            )
+            ig_blur_radius = st.slider(
+                "IG baseline blur radius",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(IG_BASELINE_BLUR_RADIUS_DEFAULT),
+                step=0.5,
+            )
+        elif explain_method == "Occlusion":
+            occ_patch_size = st.slider(
+                "Occlusion patch size",
+                min_value=4,
+                max_value=64,
+                value=OCC_PATCH_SIZE_DEFAULT,
+                step=2,
+            )
+            occ_stride = st.slider(
+                "Occlusion stride",
+                min_value=1,
+                max_value=32,
+                value=OCC_STRIDE_DEFAULT,
+                step=1,
+            )
+            occ_blur_radius = st.slider(
+                "Occlusion baseline blur radius",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(OCC_BASELINE_BLUR_RADIUS_DEFAULT),
+                step=0.5,
+            )
+        elif explain_method == "LIME":
+            lime_n_samples = st.slider(
+                "LIME samples",
+                min_value=100,
+                max_value=2000,
+                value=LIME_N_SAMPLES_DEFAULT,
+                step=50,
+            )
+            lime_perturbations_per_eval = st.slider(
+                "LIME perturbations per eval",
+                min_value=16,
+                max_value=256,
+                value=LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
+                step=16,
+            )
+            lime_n_segments = st.slider(
+                "LIME SLIC segments",
+                min_value=20,
+                max_value=300,
+                value=LIME_N_SEGMENTS_DEFAULT,
+                step=10,
+            )
+            lime_compactness = st.slider(
+                "LIME SLIC compactness",
+                min_value=1.0,
+                max_value=40.0,
+                value=float(LIME_COMPACTNESS_DEFAULT),
+                step=0.5,
+            )
+            lime_sigma = st.slider(
+                "LIME SLIC sigma",
+                min_value=0.0,
+                max_value=5.0,
+                value=float(LIME_SIGMA_DEFAULT),
+                step=0.1,
+            )
+            lime_blur_radius = st.slider(
+                "LIME baseline blur radius",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(LIME_BASELINE_BLUR_RADIUS_DEFAULT),
+                step=0.5,
+            )
+            lime_random_seed = st.number_input(
+                "LIME random seed",
+                min_value=0,
+                max_value=1_000_000,
+                value=LIME_RANDOM_SEED_DEFAULT,
+                step=1,
+            )
+            if lime_n_samples > 1200:
+                st.warning("High LIME sample counts can be slow on CPU.")
+
+    with st.expander("Metrics settings", expanded=False):
+        compute_metrics = st.checkbox("Compute metrics for the primary explainer", value=METRICS_ENABLED_DEFAULT)
+        metrics_seed = st.number_input(
+            "Metrics random seed",
             min_value=0,
             max_value=1_000_000,
-            value=LIME_RANDOM_SEED_DEFAULT,
+            value=METRICS_RANDOM_SEED_DEFAULT,
             step=1,
         )
-        if lime_n_samples > 1200:
-            st.warning("High LIME sample counts can be slow on CPU.")
-
-with st.expander("Metrics settings", expanded=False):
-    compute_metrics = st.checkbox("Compute metrics for the primary explainer", value=METRICS_ENABLED_DEFAULT)
-    metrics_seed = st.number_input(
-        "Metrics random seed",
-        min_value=0,
-        max_value=1_000_000,
-        value=METRICS_RANDOM_SEED_DEFAULT,
-        step=1,
-    )
-    metrics_slic_segments = st.slider(
-        "SLIC segments",
-        min_value=20,
-        max_value=200,
-        value=METRICS_SLIC_SEGMENTS_DEFAULT,
-        step=10,
-    )
-    metrics_slic_compactness = st.slider(
-        "SLIC compactness",
-        min_value=1.0,
-        max_value=40.0,
-        value=float(METRICS_SLIC_COMPACTNESS_DEFAULT),
-        step=0.5,
-    )
-    metrics_slic_sigma = st.slider(
-        "SLIC sigma",
-        min_value=0.0,
-        max_value=5.0,
-        value=float(METRICS_SLIC_SIGMA_DEFAULT),
-        step=0.1,
-    )
-    faithfulness_steps = st.slider(
-        "Faithfulness steps",
-        min_value=4,
-        max_value=30,
-        value=METRICS_FAITHFULNESS_STEPS_DEFAULT,
-        step=1,
-    )
-    faithfulness_blur_radius = st.slider(
-        "Faithfulness blur radius",
-        min_value=0.0,
-        max_value=15.0,
-        value=float(METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT),
-        step=0.5,
-    )
-    sensitivity_top_n = st.slider(
-        "Sensitivity top-N superpixels",
-        min_value=1,
-        max_value=50,
-        value=METRICS_SENSITIVITY_TOP_N_DEFAULT,
-        step=1,
-    )
-    sensitivity_n_random = st.slider(
-        "Sensitivity random subsets",
-        min_value=5,
-        max_value=100,
-        value=METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
-        step=5,
-    )
-    sensitivity_blur_radius = st.slider(
-        "Sensitivity blur radius",
-        min_value=0.0,
-        max_value=15.0,
-        value=float(METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT),
-        step=0.5,
-    )
-    compute_robustness = st.checkbox(
-        "Compute robustness for the primary explainer",
-        value=METRICS_ROBUSTNESS_ENABLED_DEFAULT,
-    )
-    if compute_robustness:
-        robustness_noise_sigma = st.slider(
-            "Robustness noise sigma",
-            min_value=0.0,
-            max_value=0.5,
-            value=float(METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT),
-            step=0.01,
+        metrics_slic_segments = st.slider(
+            "SLIC segments",
+            min_value=20,
+            max_value=200,
+            value=METRICS_SLIC_SEGMENTS_DEFAULT,
+            step=10,
         )
+        metrics_slic_compactness = st.slider(
+            "SLIC compactness",
+            min_value=1.0,
+            max_value=40.0,
+            value=float(METRICS_SLIC_COMPACTNESS_DEFAULT),
+            step=0.5,
+        )
+        metrics_slic_sigma = st.slider(
+            "SLIC sigma",
+            min_value=0.0,
+            max_value=5.0,
+            value=float(METRICS_SLIC_SIGMA_DEFAULT),
+            step=0.1,
+        )
+        faithfulness_steps = st.slider(
+            "Faithfulness steps",
+            min_value=4,
+            max_value=30,
+            value=METRICS_FAITHFULNESS_STEPS_DEFAULT,
+            step=1,
+        )
+        faithfulness_blur_radius = st.slider(
+            "Faithfulness blur radius",
+            min_value=0.0,
+            max_value=15.0,
+            value=float(METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT),
+            step=0.5,
+        )
+        sensitivity_top_n = st.slider(
+            "Sensitivity top-N superpixels",
+            min_value=1,
+            max_value=50,
+            value=METRICS_SENSITIVITY_TOP_N_DEFAULT,
+            step=1,
+        )
+        sensitivity_n_random = st.slider(
+            "Sensitivity random subsets",
+            min_value=5,
+            max_value=100,
+            value=METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
+            step=5,
+        )
+        sensitivity_blur_radius = st.slider(
+            "Sensitivity blur radius",
+            min_value=0.0,
+            max_value=15.0,
+            value=float(METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT),
+            step=0.5,
+        )
+        compute_robustness = st.checkbox(
+            "Compute robustness for the primary explainer",
+            value=METRICS_ROBUSTNESS_ENABLED_DEFAULT,
+        )
+        if compute_robustness:
+            robustness_noise_sigma = st.slider(
+                "Robustness noise sigma",
+                min_value=0.0,
+                max_value=0.5,
+                value=float(METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT),
+                step=0.01,
+            )
 
-uploaded_file = st.file_uploader(
-    "Upload an image",
-    type=["jpg", "jpeg", "png", "bmp", "webp"],
-)
-run_clicked = st.button("Run analysis", type="primary")
+    st.caption(
+        "Only the primary explainer receives per-image metrics. "
+        "Comparison methods are visual by default so the demo stays responsive."
+    )
+    run_clicked = st.button("Run analysis", type="primary")
+
+comparison_methods: list[str] = []
+for method_name in [explain_method, *comparison_selection]:
+    if method_name not in comparison_methods:
+        comparison_methods.append(method_name)
+comparison_methods = comparison_methods[:COMPARISON_LIMIT]
+
+image_width_map = {"Small": 300, "Medium": 420, "Large": 540}
+image_width = image_width_map[image_size_label]
 
 if uploaded_file is None:
-    st.info("Please upload an image to begin.")
+    render_step_cards()
+    st.info("Use the left sidebar to upload an image and start the demo.")
     st.stop()
 
 try:
@@ -951,9 +1114,22 @@ else:
             method_analyses[method_name] = analysis
 
 if explain_method not in method_analyses:
-    st.subheader("Uploaded Image")
-    st.image(pil_image, width=image_width)
-    st.info("Choose the settings you want and click `Run analysis`.")
+    preview_col1, preview_col2 = st.columns([0.95, 1.05], gap="large")
+    with preview_col1:
+        st.subheader("Uploaded Image")
+        st.image(pil_image, width=image_width)
+    with preview_col2:
+        st.markdown(
+            f"""
+            <div class="xai-callout">
+                <strong>{uploaded_file.name}</strong> is ready for analysis. Choose your explainer and settings in
+                the sidebar, then click <strong>Run analysis</strong> to populate the overview, metrics, and
+                comparison tabs.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_step_cards()
     st.stop()
 
 if comparison_errors:
@@ -994,177 +1170,208 @@ display_explanation_image = (
     selected_bundle["overlay_rgb"] if visual_style == "Raw overlay" else selected_bundle["simplified_rgb"]
 )
 
-header_col1, header_col2, header_col3, header_col4 = st.columns(4, gap="medium")
-with header_col1:
-    st.metric("Image", uploaded_file.name)
-with header_col2:
-    st.metric("Predicted class", str(selected_analysis["predicted_class"]))
-with header_col3:
-    st.metric("Confidence", f"{float(selected_analysis['confidence']) * 100:.2f}%")
-with header_col4:
-    st.metric("Primary method", explain_method)
+st.markdown(
+    f"""
+    <div class="xai-callout">
+        <strong>Current image:</strong> {uploaded_file.name} &nbsp;|&nbsp;
+        <strong>Primary method:</strong> {explain_method} &nbsp;|&nbsp;
+        <strong>Comparison set:</strong> {", ".join(comparison_methods)}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-main_col1, main_col2 = st.columns([0.92, 1.08], gap="large")
-with main_col1:
-    st.subheader("Original Image")
-    st.image(pil_image, width=image_width)
-with main_col2:
-    st.subheader("Main Explanation Area")
-    if view_mode == "Tabs":
-        overlay_tab, heatmap_tab = st.tabs(["Interpreted View", "Heatmap"])
-        with overlay_tab:
-            st.image(display_explanation_image, width=image_width)
-        with heatmap_tab:
-            st.image(selected_bundle["heatmap_rgb"], width=image_width)
-    else:
-        side_a, side_b = st.columns(2, gap="large")
-        with side_a:
-            st.image(display_explanation_image, width=image_width)
-        with side_b:
-            st.image(selected_bundle["heatmap_rgb"], width=image_width)
+overview_tab, metrics_tab, compare_tab = st.tabs(["Overview", "Metrics", "Compare"])
 
-summary_col, why_col = st.columns([1.3, 1], gap="large")
-with summary_col:
-    render_panel("Explanation Summary", selected_bundle["summary_lines"])
-with why_col:
-    region_analysis: RegionAnalysis = selected_bundle["region_analysis"]
-    chips = [
-        f"Top-{len(region_analysis.top_region_ids)} mass: {region_analysis.top_mass * 100:.1f}%",
-        f"Concentration: {region_analysis.concentration_label}",
-        f"Focus: {region_analysis.top_region_summary}",
-    ]
-    if region_analysis.leakage_flag:
-        chips.append(f"Border leakage: {region_analysis.border_mass * 100:.1f}%")
-    chip_html = "".join(f'<span class="xai-chip">{item}</span>' for item in chips)
+with overview_tab:
+    st.markdown("### Run Snapshot")
     st.markdown(
-        f"""
-        <div class="xai-panel">
-            <h4>Why This Prediction?</h4>
-            <p>The most influential regions identified by {explain_method} are concentrated around {region_analysis.top_region_summary}.</p>
-            <div class="xai-chip-row">{chip_html}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        "Core outputs for the current run: the selected prediction, the main explanation view, and a compact interpretation summary."
     )
-    if region_analysis.leakage_flag:
-        st.warning("The explanation places noticeable mass near the image borders, so background cues may still contribute.")
-
-st.subheader("Top-5 Classes")
-st.dataframe(top5_df, width="stretch", hide_index=True, height=215)
-
-st.subheader("Mini Quality Pane")
-if selected_metrics is None:
-    st.info("Enable `Compute metrics for the primary explainer` and run the analysis to populate the quality pane.")
-else:
-    quality_cols_1 = st.columns(4, gap="medium")
-    with quality_cols_1[0]:
+    snapshot_cols = st.columns(4, gap="medium")
+    with snapshot_cols[0]:
+        render_kpi_card(
+            "Predicted Class",
+            str(selected_analysis["predicted_class"]),
+            "Top class returned by the ImageNet-pretrained ResNet50.",
+        )
+    with snapshot_cols[1]:
         render_kpi_card(
             "Confidence",
             f"{float(selected_analysis['confidence']) * 100:.1f}%",
-            "Model confidence for the class predicted by the ImageNet-pretrained ResNet50.",
+            "Probability/confidence for the selected prediction.",
         )
-    with quality_cols_1[1]:
+    with snapshot_cols[2]:
+        render_kpi_card(
+            "Primary Method",
+            explain_method,
+            "The explainer driving the overview panels below.",
+        )
+    with snapshot_cols[3]:
         render_kpi_card(
             "Runtime",
             f"{float(selected_analysis['total_runtime_s']):.2f}s",
-            "Total analysis time for the primary explainer.",
-        )
-    with quality_cols_1[2]:
-        render_kpi_card(
-            "Deletion AUC",
-            metric_to_display(selected_metrics.get("deletion_auc")),
-            "Faithfulness under progressive removal of important regions.",
-        )
-    with quality_cols_1[3]:
-        render_kpi_card(
-            "Insertion AUC",
-            metric_to_display(selected_metrics.get("insertion_auc")),
-            "Faithfulness when important regions are gradually restored.",
+            "Total time for prediction, explanation, and any enabled metrics.",
         )
 
-    quality_cols_2 = st.columns(4, gap="medium")
-    with quality_cols_2[0]:
-        render_kpi_card(
-            "AOPC Delta",
-            metric_to_display(selected_metrics.get("aopc_delta")),
-            "Difference between insertion and deletion behavior.",
-        )
-    with quality_cols_2[1]:
-        render_kpi_card(
-            "Sensitivity",
-            metric_to_display(selected_metrics.get("sensitivity")),
-            "How much more the score drops for top regions than random regions.",
-        )
-    with quality_cols_2[2]:
-        render_kpi_card(
-            "Hoyer Sparsity",
-            metric_to_display(selected_metrics.get("hoyer_sparsity")),
-            "Compactness of the explanation across superpixels.",
-        )
-    with quality_cols_2[3]:
-        robustness_value = selected_metrics.get("spearman_rho")
-        robustness_note = "Robustness is off for this run."
-        if robustness_value is not None:
-            robustness_note = "Spearman agreement between the original and noisy explanation."
-        render_kpi_card(
-            "Robustness",
-            metric_to_display(robustness_value) if robustness_value is not None else "-",
-            robustness_note,
-        )
+    visual_col, context_col = st.columns([1.14, 0.86], gap="large")
+    with visual_col:
+        st.subheader("Visual Evidence")
+        st.caption("Switch between the interpreted view and raw heatmap while keeping the original image close by.")
+        base_col, explanation_col = st.columns([0.92, 1.08], gap="large")
+        with base_col:
+            st.image(pil_image, width=image_width, caption="Original image")
+        with explanation_col:
+            if view_mode == "Tabs":
+                overlay_tab, heatmap_tab = st.tabs(["Interpreted View", "Heatmap"])
+                with overlay_tab:
+                    st.image(display_explanation_image, width=image_width)
+                with heatmap_tab:
+                    st.image(selected_bundle["heatmap_rgb"], width=image_width)
+            else:
+                side_a, side_b = st.columns(2, gap="large")
+                with side_a:
+                    st.image(display_explanation_image, width=image_width, caption="Selected explanation view")
+                with side_b:
+                    st.image(selected_bundle["heatmap_rgb"], width=image_width, caption="Raw heatmap")
 
-    metric_details_rows = [
-        {"Metric": "Drop Top", "Value": metric_to_display(selected_metrics.get("drop_top"))},
-        {"Metric": "Drop Random Mean", "Value": metric_to_display(selected_metrics.get("drop_rand_mean"))},
-        {"Metric": "Metrics Runtime", "Value": metric_to_display(float(selected_analysis["metrics_runtime_s"]), digits=2)},
-    ]
-    for frac in METRICS_ROBUSTNESS_TOPK_FRACS_DEFAULT:
-        key = f"iou_top_{int(round(float(frac) * 100.0))}pct"
-        if key in selected_metrics:
-            metric_details_rows.append(
-                {
-                    "Metric": f"IoU Top-{int(round(float(frac) * 100.0))}%",
-                    "Value": metric_to_display(selected_metrics.get(key)),
-                }
-            )
-    with st.expander("Metric details", expanded=False):
-        st.dataframe(pd.DataFrame(metric_details_rows), width="stretch", hide_index=True)
-        if "faithfulness_xs" in selected_metrics:
-            curve_df = pd.DataFrame(
-                {
-                    "Fraction": [float(value) for value in selected_metrics["faithfulness_xs"]],
-                    "Deletion": [float(value) for value in selected_metrics["deletion_curve"]],
-                    "Insertion": [float(value) for value in selected_metrics["insertion_curve"]],
-                }
-            )
-            st.line_chart(curve_df.set_index("Fraction"), width="stretch", height=240)
+    with context_col:
+        st.subheader("Interpretation")
+        render_panel("Explanation Summary", selected_bundle["summary_lines"])
+        render_focus_panel(explain_method, selected_bundle["region_analysis"])
+        st.markdown("#### Top-5 Classes")
+        st.dataframe(top5_df, width="stretch", hide_index=True, height=235)
 
-st.subheader("Compare Methods")
-if len(comparison_bundles) < 2:
-    st.info("Select at least two methods in `Comparison methods` and click `Run analysis` to unlock side-by-side comparison.")
-else:
-    comparison_summary = compare_method_regions(
-        {method_name: bundle["region_analysis"] for method_name, bundle in comparison_bundles.items()}
+with metrics_tab:
+    st.markdown("### Metric Readout")
+    st.markdown(
+        '<div class="xai-section-note">Per-image quality metrics are computed only for the primary explainer so the demo remains responsive.</div>',
+        unsafe_allow_html=True,
     )
-    summary_body = [
-        str(comparison_summary["summary"]),
-        f"Mean pairwise IoU across top regions: {float(comparison_summary['mean_pairwise_iou']):.3f}.",
-    ]
-    render_panel("Method Agreement", summary_body)
-
-    compare_columns = st.columns(len(comparison_bundles), gap="medium")
-    for index, (method_name, bundle) in enumerate(comparison_bundles.items()):
-        with compare_columns[index]:
-            compare_image = bundle["overlay_rgb"] if visual_style == "Raw overlay" else bundle["simplified_rgb"]
-            comparison_runtime = float(method_analyses[method_name]["total_runtime_s"])
-            comparison_region: RegionAnalysis = bundle["region_analysis"]
-            st.markdown(f'<div class="xai-compare-card"><div class="xai-compare-title">{method_name}</div></div>', unsafe_allow_html=True)
-            st.image(compare_image, width=image_width)
-            st.caption(
-                f"Top-{len(comparison_region.top_region_ids)} mass: {comparison_region.top_mass * 100:.1f}% | "
-                f"{comparison_region.concentration_label} | {comparison_runtime:.2f}s"
+    if selected_metrics is None:
+        st.info("Enable `Compute metrics for the primary explainer` in the sidebar and run the analysis to populate this tab.")
+    else:
+        quality_cols_1 = st.columns(4, gap="medium")
+        with quality_cols_1[0]:
+            render_kpi_card(
+                "Deletion AUC",
+                metric_to_display(selected_metrics.get("deletion_auc")),
+                "Faithfulness under progressive removal of important regions.",
             )
-            st.caption(f"Focus: {comparison_region.top_region_summary}")
+        with quality_cols_1[1]:
+            render_kpi_card(
+                "Insertion AUC",
+                metric_to_display(selected_metrics.get("insertion_auc")),
+                "Faithfulness when important regions are gradually restored.",
+            )
+        with quality_cols_1[2]:
+            render_kpi_card(
+                "Sensitivity",
+                metric_to_display(selected_metrics.get("sensitivity")),
+                "Drop for top regions relative to random subsets.",
+            )
+        with quality_cols_1[3]:
+            render_kpi_card(
+                "Hoyer Sparsity",
+                metric_to_display(selected_metrics.get("hoyer_sparsity")),
+                "Compactness of the explanation across superpixels.",
+            )
 
-    pairwise_rows = comparison_summary.get("pairwise_rows", [])
-    if pairwise_rows:
-        st.dataframe(pd.DataFrame(pairwise_rows), width="stretch", hide_index=True, height=150)
+        quality_cols_2 = st.columns(4, gap="medium")
+        with quality_cols_2[0]:
+            render_kpi_card(
+                "AOPC Delta",
+                metric_to_display(selected_metrics.get("aopc_delta")),
+                "Difference between insertion and deletion behavior.",
+            )
+        with quality_cols_2[1]:
+            robustness_value = selected_metrics.get("spearman_rho")
+            robustness_note = "Robustness is off for this run."
+            if robustness_value is not None:
+                robustness_note = "Spearman agreement between the original and noisy explanation."
+            render_kpi_card(
+                "Robustness",
+                metric_to_display(robustness_value) if robustness_value is not None else "-",
+                robustness_note,
+            )
+        with quality_cols_2[2]:
+            render_kpi_card(
+                "Metrics Runtime",
+                metric_to_display(float(selected_analysis["metrics_runtime_s"]), digits=2),
+                "Time spent only on the metric computations.",
+            )
+        with quality_cols_2[3]:
+            render_kpi_card(
+                "Overlay Opacity",
+                f"{overlay_alpha:.2f}",
+                "Current visual opacity setting used in the overview images.",
+            )
+
+        detail_col1, detail_col2 = st.columns([0.78, 1.22], gap="large")
+        with detail_col1:
+            metric_details_rows = [
+                {"Metric": "Drop Top", "Value": metric_to_display(selected_metrics.get("drop_top"))},
+                {"Metric": "Drop Random Mean", "Value": metric_to_display(selected_metrics.get("drop_rand_mean"))},
+            ]
+            for frac in METRICS_ROBUSTNESS_TOPK_FRACS_DEFAULT:
+                key = f"iou_top_{int(round(float(frac) * 100.0))}pct"
+                if key in selected_metrics:
+                    metric_details_rows.append(
+                        {
+                            "Metric": f"IoU Top-{int(round(float(frac) * 100.0))}%",
+                            "Value": metric_to_display(selected_metrics.get(key)),
+                        }
+                    )
+            st.markdown("#### Metric Details")
+            st.dataframe(pd.DataFrame(metric_details_rows), width="stretch", hide_index=True, height=245)
+
+        with detail_col2:
+            st.markdown("#### Faithfulness Curves")
+            if "faithfulness_xs" in selected_metrics:
+                curve_df = pd.DataFrame(
+                    {
+                        "Fraction": [float(value) for value in selected_metrics["faithfulness_xs"]],
+                        "Deletion": [float(value) for value in selected_metrics["deletion_curve"]],
+                        "Insertion": [float(value) for value in selected_metrics["insertion_curve"]],
+                    }
+                )
+                st.line_chart(curve_df.set_index("Fraction"), width="stretch", height=300)
+
+with compare_tab:
+    st.markdown("### Multi-Method Comparison")
+    st.markdown(
+        '<div class="xai-section-note">Use this tab to compare where different explainers focus on the same image.</div>',
+        unsafe_allow_html=True,
+    )
+    if len(comparison_bundles) < 2:
+        st.info("Select at least two methods in `Comparison methods` and click `Run analysis` to unlock side-by-side comparison.")
+    else:
+        comparison_summary = compare_method_regions(
+            {method_name: bundle["region_analysis"] for method_name, bundle in comparison_bundles.items()}
+        )
+        summary_body = [
+            str(comparison_summary["summary"]),
+            f"Mean pairwise IoU across top regions: {float(comparison_summary['mean_pairwise_iou']):.3f}.",
+        ]
+        render_panel("Method Agreement", summary_body)
+
+        compare_columns = st.columns(len(comparison_bundles), gap="medium")
+        for index, (method_name, bundle) in enumerate(comparison_bundles.items()):
+            with compare_columns[index]:
+                compare_image = bundle["overlay_rgb"] if visual_style == "Raw overlay" else bundle["simplified_rgb"]
+                comparison_runtime = float(method_analyses[method_name]["total_runtime_s"])
+                comparison_region: RegionAnalysis = bundle["region_analysis"]
+                st.markdown(
+                    f'<div class="xai-compare-card"><div class="xai-compare-title">{method_name}</div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.image(compare_image, width=image_width)
+                st.caption(
+                    f"Top-{len(comparison_region.top_region_ids)} mass: {comparison_region.top_mass * 100:.1f}% | "
+                    f"{comparison_region.concentration_label} | {comparison_runtime:.2f}s"
+                )
+                st.caption(f"Focus: {comparison_region.top_region_summary}")
+
+        pairwise_rows = comparison_summary.get("pairwise_rows", [])
+        if pairwise_rows:
+            st.dataframe(pd.DataFrame(pairwise_rows), width="stretch", hide_index=True, height=150)
