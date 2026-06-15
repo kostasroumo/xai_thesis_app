@@ -65,6 +65,7 @@ METRICS_SENSITIVITY_TOP_N_DEFAULT = int(_cfg("METRICS_SENSITIVITY_TOP_N_DEFAULT"
 METRICS_SLIC_COMPACTNESS_DEFAULT = float(_cfg("METRICS_SLIC_COMPACTNESS_DEFAULT", 10.0))
 METRICS_SLIC_SEGMENTS_DEFAULT = int(_cfg("METRICS_SLIC_SEGMENTS_DEFAULT", 50))
 METRICS_SLIC_SIGMA_DEFAULT = float(_cfg("METRICS_SLIC_SIGMA_DEFAULT", 1.0))
+OCC_BASELINE_TYPE_DEFAULT = str(_cfg("OCC_BASELINE_TYPE_DEFAULT", "blur"))
 OCC_BASELINE_BLUR_RADIUS_DEFAULT = float(_cfg("OCC_BASELINE_BLUR_RADIUS_DEFAULT", 4.0))
 OCC_PATCH_SIZE_DEFAULT = int(_cfg("OCC_PATCH_SIZE_DEFAULT", 32))
 OCC_STRIDE_DEFAULT = int(_cfg("OCC_STRIDE_DEFAULT", 32))
@@ -76,10 +77,41 @@ SEMANTIC_SLIC_COMPACTNESS_DEFAULT = float(_cfg("SEMANTIC_SLIC_COMPACTNESS_DEFAUL
 SEMANTIC_SLIC_SEGMENTS_DEFAULT = int(_cfg("SEMANTIC_SLIC_SEGMENTS_DEFAULT", 80))
 SEMANTIC_SLIC_SIGMA_DEFAULT = float(_cfg("SEMANTIC_SLIC_SIGMA_DEFAULT", 1.0))
 SEMANTIC_TOP_K_SUPERPIXELS_DEFAULT = int(_cfg("SEMANTIC_TOP_K_SUPERPIXELS_DEFAULT", 10))
+THESIS_CAM_SCORE_TYPE = str(_cfg("THESIS_CAM_SCORE_TYPE", "logit"))
+THESIS_IG_STEPS = int(_cfg("THESIS_IG_STEPS", 16))
+THESIS_IG_INTERNAL_BATCH_SIZE = int(_cfg("THESIS_IG_INTERNAL_BATCH_SIZE", 16))
+THESIS_IG_BASELINE_BLUR_RADIUS = float(_cfg("THESIS_IG_BASELINE_BLUR_RADIUS", 4.0))
+THESIS_OCC_PATCH_SIZE = int(_cfg("THESIS_OCC_PATCH_SIZE", 15))
+THESIS_OCC_STRIDE = int(_cfg("THESIS_OCC_STRIDE", 12))
+THESIS_OCC_BASELINE_TYPE = str(_cfg("THESIS_OCC_BASELINE_TYPE", "zero"))
+THESIS_OCC_BASELINE_BLUR_RADIUS = float(_cfg("THESIS_OCC_BASELINE_BLUR_RADIUS", 4.0))
+THESIS_LIME_N_SAMPLES = int(_cfg("THESIS_LIME_N_SAMPLES", 1500))
+THESIS_LIME_PERTURBATIONS_PER_EVAL = int(_cfg("THESIS_LIME_PERTURBATIONS_PER_EVAL", 128))
+THESIS_LIME_N_SEGMENTS = int(_cfg("THESIS_LIME_N_SEGMENTS", 140))
+THESIS_LIME_COMPACTNESS = float(_cfg("THESIS_LIME_COMPACTNESS", 12.0))
+THESIS_LIME_SIGMA = float(_cfg("THESIS_LIME_SIGMA", 1.0))
+THESIS_LIME_BASELINE_BLUR_RADIUS = float(_cfg("THESIS_LIME_BASELINE_BLUR_RADIUS", 2.0))
+THESIS_LIME_RANDOM_SEED = int(_cfg("THESIS_LIME_RANDOM_SEED", 0))
+THESIS_METRICS_ENABLED = bool(_cfg("THESIS_METRICS_ENABLED", True))
+THESIS_METRICS_RANDOM_SEED = int(_cfg("THESIS_METRICS_RANDOM_SEED", 0))
+THESIS_METRICS_SLIC_SEGMENTS = int(_cfg("THESIS_METRICS_SLIC_SEGMENTS", 140))
+THESIS_METRICS_SLIC_COMPACTNESS = float(_cfg("THESIS_METRICS_SLIC_COMPACTNESS", 12.0))
+THESIS_METRICS_SLIC_SIGMA = float(_cfg("THESIS_METRICS_SLIC_SIGMA", 1.0))
+THESIS_METRICS_FAITHFULNESS_STEPS = int(_cfg("THESIS_METRICS_FAITHFULNESS_STEPS", 20))
+THESIS_METRICS_FAITHFULNESS_BLUR_RADIUS = float(_cfg("THESIS_METRICS_FAITHFULNESS_BLUR_RADIUS", 4.0))
+THESIS_METRICS_SENSITIVITY_TOP_N = int(_cfg("THESIS_METRICS_SENSITIVITY_TOP_N", 5))
+THESIS_METRICS_SENSITIVITY_N_RANDOM = int(_cfg("THESIS_METRICS_SENSITIVITY_N_RANDOM", 10))
+THESIS_METRICS_SENSITIVITY_BLUR_RADIUS = float(_cfg("THESIS_METRICS_SENSITIVITY_BLUR_RADIUS", 4.0))
+THESIS_METRICS_ROBUSTNESS_ENABLED = bool(_cfg("THESIS_METRICS_ROBUSTNESS_ENABLED", True))
+THESIS_METRICS_ROBUSTNESS_NOISE_SIGMA = float(_cfg("THESIS_METRICS_ROBUSTNESS_NOISE_SIGMA", 0.01))
+THESIS_METRICS_ROBUSTNESS_TOPK_FRACS = tuple(_cfg("THESIS_METRICS_ROBUSTNESS_TOPK_FRACS", (0.05, 0.1, 0.2)))
 TOP_K = int(_cfg("TOP_K", 5))
 
 SUMMARY_TOP_K = 3
 COMPARISON_LIMIT = 3
+APP_SETTINGS_PRESET = "App defaults"
+THESIS_SETTINGS_PRESET = "Thesis settings"
+SETTINGS_PRESET_OPTIONS = [APP_SETTINGS_PRESET, THESIS_SETTINGS_PRESET]
 SEMANTIC_SETTINGS = SemanticSettings(
     slic_n_segments=SEMANTIC_SLIC_SEGMENTS_DEFAULT,
     slic_compactness=SEMANTIC_SLIC_COMPACTNESS_DEFAULT,
@@ -371,6 +403,100 @@ def get_session_semantic_cache() -> OrderedDict[str, dict[str, Any]]:
     return cache
 
 
+APP_PRESET_VALUES: dict[str, Any] = {
+    "score_type": CAM_SCORE_TYPE_DEFAULT,
+    "ig_steps": IG_STEPS_DEFAULT,
+    "ig_internal_batch_size": IG_INTERNAL_BATCH_SIZE_DEFAULT,
+    "ig_blur_radius": IG_BASELINE_BLUR_RADIUS_DEFAULT,
+    "occ_patch_size": OCC_PATCH_SIZE_DEFAULT,
+    "occ_stride": OCC_STRIDE_DEFAULT,
+    "occ_baseline_type": OCC_BASELINE_TYPE_DEFAULT,
+    "occ_blur_radius": OCC_BASELINE_BLUR_RADIUS_DEFAULT,
+    "lime_n_samples": LIME_N_SAMPLES_DEFAULT,
+    "lime_perturbations_per_eval": LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
+    "lime_n_segments": LIME_N_SEGMENTS_DEFAULT,
+    "lime_compactness": LIME_COMPACTNESS_DEFAULT,
+    "lime_sigma": LIME_SIGMA_DEFAULT,
+    "lime_blur_radius": LIME_BASELINE_BLUR_RADIUS_DEFAULT,
+    "lime_random_seed": LIME_RANDOM_SEED_DEFAULT,
+    "compute_metrics": METRICS_ENABLED_DEFAULT,
+    "metrics_seed": METRICS_RANDOM_SEED_DEFAULT,
+    "metrics_slic_segments": METRICS_SLIC_SEGMENTS_DEFAULT,
+    "metrics_slic_compactness": METRICS_SLIC_COMPACTNESS_DEFAULT,
+    "metrics_slic_sigma": METRICS_SLIC_SIGMA_DEFAULT,
+    "faithfulness_steps": METRICS_FAITHFULNESS_STEPS_DEFAULT,
+    "faithfulness_blur_radius": METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT,
+    "sensitivity_top_n": METRICS_SENSITIVITY_TOP_N_DEFAULT,
+    "sensitivity_n_random": METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
+    "sensitivity_blur_radius": METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT,
+    "compute_robustness": METRICS_ROBUSTNESS_ENABLED_DEFAULT,
+    "robustness_noise_sigma": METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT,
+    "robustness_topk_fracs": tuple(float(v) for v in METRICS_ROBUSTNESS_TOPK_FRACS_DEFAULT),
+}
+
+THESIS_PRESET_VALUES: dict[str, Any] = {
+    "score_type": THESIS_CAM_SCORE_TYPE,
+    "ig_steps": THESIS_IG_STEPS,
+    "ig_internal_batch_size": THESIS_IG_INTERNAL_BATCH_SIZE,
+    "ig_blur_radius": THESIS_IG_BASELINE_BLUR_RADIUS,
+    "occ_patch_size": THESIS_OCC_PATCH_SIZE,
+    "occ_stride": THESIS_OCC_STRIDE,
+    "occ_baseline_type": THESIS_OCC_BASELINE_TYPE,
+    "occ_blur_radius": THESIS_OCC_BASELINE_BLUR_RADIUS,
+    "lime_n_samples": THESIS_LIME_N_SAMPLES,
+    "lime_perturbations_per_eval": THESIS_LIME_PERTURBATIONS_PER_EVAL,
+    "lime_n_segments": THESIS_LIME_N_SEGMENTS,
+    "lime_compactness": THESIS_LIME_COMPACTNESS,
+    "lime_sigma": THESIS_LIME_SIGMA,
+    "lime_blur_radius": THESIS_LIME_BASELINE_BLUR_RADIUS,
+    "lime_random_seed": THESIS_LIME_RANDOM_SEED,
+    "compute_metrics": THESIS_METRICS_ENABLED,
+    "metrics_seed": THESIS_METRICS_RANDOM_SEED,
+    "metrics_slic_segments": THESIS_METRICS_SLIC_SEGMENTS,
+    "metrics_slic_compactness": THESIS_METRICS_SLIC_COMPACTNESS,
+    "metrics_slic_sigma": THESIS_METRICS_SLIC_SIGMA,
+    "faithfulness_steps": THESIS_METRICS_FAITHFULNESS_STEPS,
+    "faithfulness_blur_radius": THESIS_METRICS_FAITHFULNESS_BLUR_RADIUS,
+    "sensitivity_top_n": THESIS_METRICS_SENSITIVITY_TOP_N,
+    "sensitivity_n_random": THESIS_METRICS_SENSITIVITY_N_RANDOM,
+    "sensitivity_blur_radius": THESIS_METRICS_SENSITIVITY_BLUR_RADIUS,
+    "compute_robustness": THESIS_METRICS_ROBUSTNESS_ENABLED,
+    "robustness_noise_sigma": THESIS_METRICS_ROBUSTNESS_NOISE_SIGMA,
+    "robustness_topk_fracs": tuple(float(v) for v in THESIS_METRICS_ROBUSTNESS_TOPK_FRACS),
+}
+
+SETTINGS_PRESETS: dict[str, dict[str, Any]] = {
+    APP_SETTINGS_PRESET: APP_PRESET_VALUES,
+    THESIS_SETTINGS_PRESET: THESIS_PRESET_VALUES,
+}
+
+
+def initialize_settings_state() -> None:
+    if "settings_preset" not in st.session_state:
+        st.session_state["settings_preset"] = APP_SETTINGS_PRESET
+        apply_settings_preset(APP_SETTINGS_PRESET)
+        return
+
+    active_preset = SETTINGS_PRESETS.get(
+        str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET)),
+        APP_PRESET_VALUES,
+    )
+    for key, value in active_preset.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def apply_settings_preset(preset_name: str) -> None:
+    preset_values = SETTINGS_PRESETS.get(preset_name, APP_PRESET_VALUES)
+    for key, value in preset_values.items():
+        st.session_state[key] = value
+    st.session_state["settings_preset"] = preset_name
+
+
+def apply_selected_settings_preset() -> None:
+    apply_settings_preset(str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET)))
+
+
 def trim_analysis_cache(cache: OrderedDict[str, dict[str, Any]]) -> None:
     while len(cache) > ANALYSIS_CACHE_MAX_ENTRIES:
         cache.popitem(last=False)
@@ -390,6 +516,7 @@ def build_analysis_key(
     ig_blur_radius: float,
     occ_patch_size: int,
     occ_stride: int,
+    occ_baseline_type: str,
     occ_blur_radius: float,
     lime_n_samples: int,
     lime_perturbations_per_eval: int,
@@ -410,6 +537,7 @@ def build_analysis_key(
     sensitivity_blur_radius: float,
     compute_robustness: bool,
     robustness_noise_sigma: float,
+    robustness_topk_fracs: tuple[float, ...],
 ) -> str:
     hasher = hashlib.sha256()
     hasher.update(image_bytes)
@@ -421,6 +549,7 @@ def build_analysis_key(
         round(ig_blur_radius, 4),
         occ_patch_size,
         occ_stride,
+        occ_baseline_type,
         round(occ_blur_radius, 4),
         lime_n_samples,
         lime_perturbations_per_eval,
@@ -441,6 +570,7 @@ def build_analysis_key(
         round(sensitivity_blur_radius, 4),
         compute_robustness,
         round(robustness_noise_sigma, 5),
+        tuple(round(float(value), 4) for value in robustness_topk_fracs),
     )
     hasher.update(str(params).encode("utf-8"))
     return hasher.hexdigest()
@@ -492,6 +622,7 @@ def build_analysis_request(
     ig_blur_radius: float,
     occ_patch_size: int,
     occ_stride: int,
+    occ_baseline_type: str,
     occ_blur_radius: float,
     lime_n_samples: int,
     lime_perturbations_per_eval: int,
@@ -512,6 +643,7 @@ def build_analysis_request(
     sensitivity_blur_radius: float,
     compute_robustness: bool,
     robustness_noise_sigma: float,
+    robustness_topk_fracs: tuple[float, ...],
 ) -> dict[str, Any]:
     return {
         "image_bytes": image_bytes,
@@ -522,6 +654,7 @@ def build_analysis_request(
         "ig_blur_radius": float(ig_blur_radius),
         "occ_patch_size": occ_patch_size,
         "occ_stride": occ_stride,
+        "occ_baseline_type": str(occ_baseline_type),
         "occ_blur_radius": float(occ_blur_radius),
         "lime_n_samples": lime_n_samples,
         "lime_perturbations_per_eval": lime_perturbations_per_eval,
@@ -542,6 +675,7 @@ def build_analysis_request(
         "sensitivity_blur_radius": float(sensitivity_blur_radius),
         "compute_robustness": bool(compute_robustness),
         "robustness_noise_sigma": float(robustness_noise_sigma),
+        "robustness_topk_fracs": tuple(float(value) for value in robustness_topk_fracs),
     }
 
 
@@ -554,6 +688,7 @@ def run_analysis(
     ig_blur_radius: float,
     occ_patch_size: int,
     occ_stride: int,
+    occ_baseline_type: str,
     occ_blur_radius: float,
     lime_n_samples: int,
     lime_perturbations_per_eval: int,
@@ -574,6 +709,7 @@ def run_analysis(
     sensitivity_blur_radius: float,
     compute_robustness: bool,
     robustness_noise_sigma: float,
+    robustness_topk_fracs: tuple[float, ...],
 ) -> dict[str, Any]:
     start_total = time.perf_counter()
     pil_image = load_image(image_bytes)
@@ -614,6 +750,7 @@ def run_analysis(
                 score_type=score_type,
                 patch_size=occ_patch_size,
                 stride=occ_stride,
+                baseline_type=occ_baseline_type,
                 blur_radius=occ_blur_radius,
             )
         return generate_lime(
@@ -648,7 +785,7 @@ def run_analysis(
             sensitivity_top_n=int(sensitivity_top_n),
             sensitivity_n_random=int(sensitivity_n_random),
             sensitivity_blur_radius=float(sensitivity_blur_radius),
-            robustness_topk_fracs=tuple(float(v) for v in METRICS_ROBUSTNESS_TOPK_FRACS_DEFAULT),
+            robustness_topk_fracs=tuple(float(v) for v in robustness_topk_fracs),
         )
 
         noisy_cam: np.ndarray | None = None
@@ -984,6 +1121,8 @@ def collapse_setup_panel() -> None:
 if "setup_panel_expanded" not in st.session_state:
     st.session_state["setup_panel_expanded"] = True
 
+initialize_settings_state()
+
 
 render_hero()
 st.caption(
@@ -1001,35 +1140,6 @@ if not bool(st.session_state.get("setup_panel_expanded", True)):
         )
     with setup_action_right:
         st.button("Show setup", on_click=expand_setup_panel)
-
-ig_steps = IG_STEPS_DEFAULT
-ig_internal_batch_size = IG_INTERNAL_BATCH_SIZE_DEFAULT
-ig_blur_radius = IG_BASELINE_BLUR_RADIUS_DEFAULT
-
-occ_patch_size = OCC_PATCH_SIZE_DEFAULT
-occ_stride = OCC_STRIDE_DEFAULT
-occ_blur_radius = OCC_BASELINE_BLUR_RADIUS_DEFAULT
-
-lime_n_samples = LIME_N_SAMPLES_DEFAULT
-lime_perturbations_per_eval = LIME_PERTURBATIONS_PER_EVAL_DEFAULT
-lime_n_segments = LIME_N_SEGMENTS_DEFAULT
-lime_compactness = LIME_COMPACTNESS_DEFAULT
-lime_sigma = LIME_SIGMA_DEFAULT
-lime_blur_radius = LIME_BASELINE_BLUR_RADIUS_DEFAULT
-lime_random_seed = LIME_RANDOM_SEED_DEFAULT
-
-compute_metrics = METRICS_ENABLED_DEFAULT
-metrics_seed = METRICS_RANDOM_SEED_DEFAULT
-metrics_slic_segments = METRICS_SLIC_SEGMENTS_DEFAULT
-metrics_slic_compactness = METRICS_SLIC_COMPACTNESS_DEFAULT
-metrics_slic_sigma = METRICS_SLIC_SIGMA_DEFAULT
-faithfulness_steps = METRICS_FAITHFULNESS_STEPS_DEFAULT
-faithfulness_blur_radius = METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT
-sensitivity_top_n = METRICS_SENSITIVITY_TOP_N_DEFAULT
-sensitivity_n_random = METRICS_SENSITIVITY_N_RANDOM_DEFAULT
-sensitivity_blur_radius = METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT
-compute_robustness = METRICS_ROBUSTNESS_ENABLED_DEFAULT
-robustness_noise_sigma = METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT
 
 with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_panel_expanded", True))):
     st.markdown(
@@ -1058,7 +1168,7 @@ with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_pan
         score_type = st.radio(
             "Score type",
             options=["logit", "prob"],
-            index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
+            key="score_type",
             help="Use class logit score or softmax probability score for explanation.",
         )
 
@@ -1086,179 +1196,206 @@ with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_pan
         )
 
     with st.expander("Advanced Settings", expanded=False):
+        st.selectbox(
+            "Settings preset",
+            options=SETTINGS_PRESET_OPTIONS,
+            key="settings_preset",
+            on_change=apply_selected_settings_preset,
+            help="Apply the regular app defaults or auto-fill the thesis hyperparameters.",
+        )
+        if str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET)) == THESIS_SETTINGS_PRESET:
+            st.caption(
+                "Thesis preset fills the thesis score type, explainer hyperparameters, and metric settings. "
+                "For LIME it also applies the thesis-style shared SLIC settings."
+            )
+
         advanced_method_col, advanced_metrics_col = st.columns(2, gap="large")
 
         with advanced_method_col:
             with st.expander("Method settings", expanded=False):
                 if explain_method == "Integrated Gradients":
-                    ig_steps = st.slider("IG steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
-                    ig_internal_batch_size = st.slider(
+                    st.slider("IG steps", min_value=10, max_value=300, key="ig_steps", step=10)
+                    st.slider(
                         "IG internal batch size",
                         min_value=1,
                         max_value=64,
-                        value=IG_INTERNAL_BATCH_SIZE_DEFAULT,
+                        key="ig_internal_batch_size",
                         step=1,
                     )
-                    ig_blur_radius = st.slider(
+                    st.slider(
                         "IG baseline blur radius",
                         min_value=0.0,
                         max_value=15.0,
-                        value=float(IG_BASELINE_BLUR_RADIUS_DEFAULT),
+                        key="ig_blur_radius",
                         step=0.5,
                     )
                 elif explain_method == "Occlusion":
-                    occ_patch_size = st.slider(
+                    st.slider(
                         "Occlusion patch size",
                         min_value=4,
                         max_value=64,
-                        value=OCC_PATCH_SIZE_DEFAULT,
-                        step=2,
+                        key="occ_patch_size",
+                        step=1,
                     )
-                    occ_stride = st.slider(
+                    st.slider(
                         "Occlusion stride",
                         min_value=1,
                         max_value=32,
-                        value=OCC_STRIDE_DEFAULT,
+                        key="occ_stride",
                         step=1,
                     )
-                    occ_blur_radius = st.slider(
-                        "Occlusion baseline blur radius",
-                        min_value=0.0,
-                        max_value=15.0,
-                        value=float(OCC_BASELINE_BLUR_RADIUS_DEFAULT),
-                        step=0.5,
+                    st.selectbox(
+                        "Occlusion baseline",
+                        options=["blur", "zero"],
+                        key="occ_baseline_type",
+                        help="`zero` matches the thesis occlusion setup, while `blur` matches the current app default.",
                     )
+                    if str(st.session_state.get("occ_baseline_type", OCC_BASELINE_TYPE_DEFAULT)) == "blur":
+                        st.slider(
+                            "Occlusion baseline blur radius",
+                            min_value=0.0,
+                            max_value=15.0,
+                            key="occ_blur_radius",
+                            step=0.5,
+                        )
+                    else:
+                        st.caption("Occlusion uses a zero baseline in normalized space for this run.")
                 elif explain_method == "LIME":
-                    lime_n_samples = st.slider(
+                    st.slider(
                         "LIME samples",
                         min_value=100,
                         max_value=2000,
-                        value=LIME_N_SAMPLES_DEFAULT,
+                        key="lime_n_samples",
                         step=50,
                     )
-                    lime_perturbations_per_eval = st.slider(
+                    st.slider(
                         "LIME perturbations per eval",
                         min_value=16,
                         max_value=256,
-                        value=LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
+                        key="lime_perturbations_per_eval",
                         step=16,
                     )
-                    lime_n_segments = st.slider(
+                    st.slider(
                         "LIME SLIC segments",
                         min_value=20,
                         max_value=300,
-                        value=LIME_N_SEGMENTS_DEFAULT,
+                        key="lime_n_segments",
                         step=10,
                     )
-                    lime_compactness = st.slider(
+                    st.slider(
                         "LIME SLIC compactness",
                         min_value=1.0,
                         max_value=40.0,
-                        value=float(LIME_COMPACTNESS_DEFAULT),
+                        key="lime_compactness",
                         step=0.5,
                     )
-                    lime_sigma = st.slider(
+                    st.slider(
                         "LIME SLIC sigma",
                         min_value=0.0,
                         max_value=5.0,
-                        value=float(LIME_SIGMA_DEFAULT),
+                        key="lime_sigma",
                         step=0.1,
                     )
-                    lime_blur_radius = st.slider(
+                    st.slider(
                         "LIME baseline blur radius",
                         min_value=0.0,
                         max_value=15.0,
-                        value=float(LIME_BASELINE_BLUR_RADIUS_DEFAULT),
+                        key="lime_blur_radius",
                         step=0.5,
                     )
-                    lime_random_seed = st.number_input(
+                    st.number_input(
                         "LIME random seed",
                         min_value=0,
                         max_value=1_000_000,
-                        value=LIME_RANDOM_SEED_DEFAULT,
+                        key="lime_random_seed",
                         step=1,
                     )
-                    if lime_n_samples > 1200:
+                    if int(st.session_state.get("lime_n_samples", LIME_N_SAMPLES_DEFAULT)) > 1200:
                         st.warning("High LIME sample counts can be slow on CPU.")
 
         with advanced_metrics_col:
             with st.expander("Metrics settings", expanded=False):
-                compute_metrics = st.checkbox("Compute metrics for the primary explainer", value=METRICS_ENABLED_DEFAULT)
-                metrics_seed = st.number_input(
+                st.checkbox("Compute metrics for the primary explainer", key="compute_metrics")
+                st.number_input(
                     "Metrics random seed",
                     min_value=0,
                     max_value=1_000_000,
-                    value=METRICS_RANDOM_SEED_DEFAULT,
+                    key="metrics_seed",
                     step=1,
                 )
-                metrics_slic_segments = st.slider(
+                st.slider(
                     "SLIC segments",
                     min_value=20,
                     max_value=200,
-                    value=METRICS_SLIC_SEGMENTS_DEFAULT,
+                    key="metrics_slic_segments",
                     step=10,
                 )
-                metrics_slic_compactness = st.slider(
+                st.slider(
                     "SLIC compactness",
                     min_value=1.0,
                     max_value=40.0,
-                    value=float(METRICS_SLIC_COMPACTNESS_DEFAULT),
+                    key="metrics_slic_compactness",
                     step=0.5,
                 )
-                metrics_slic_sigma = st.slider(
+                st.slider(
                     "SLIC sigma",
                     min_value=0.0,
                     max_value=5.0,
-                    value=float(METRICS_SLIC_SIGMA_DEFAULT),
+                    key="metrics_slic_sigma",
                     step=0.1,
                 )
-                faithfulness_steps = st.slider(
+                st.slider(
                     "Faithfulness steps",
                     min_value=4,
                     max_value=30,
-                    value=METRICS_FAITHFULNESS_STEPS_DEFAULT,
+                    key="faithfulness_steps",
                     step=1,
                 )
-                faithfulness_blur_radius = st.slider(
+                st.slider(
                     "Faithfulness blur radius",
                     min_value=0.0,
                     max_value=15.0,
-                    value=float(METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT),
+                    key="faithfulness_blur_radius",
                     step=0.5,
                 )
-                sensitivity_top_n = st.slider(
+                st.slider(
                     "Sensitivity top-N superpixels",
                     min_value=1,
                     max_value=50,
-                    value=METRICS_SENSITIVITY_TOP_N_DEFAULT,
+                    key="sensitivity_top_n",
                     step=1,
                 )
-                sensitivity_n_random = st.slider(
+                st.slider(
                     "Sensitivity random subsets",
                     min_value=5,
                     max_value=100,
-                    value=METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
+                    key="sensitivity_n_random",
                     step=5,
                 )
-                sensitivity_blur_radius = st.slider(
+                st.slider(
                     "Sensitivity blur radius",
                     min_value=0.0,
                     max_value=15.0,
-                    value=float(METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT),
+                    key="sensitivity_blur_radius",
                     step=0.5,
                 )
                 compute_robustness = st.checkbox(
                     "Compute robustness for the primary explainer",
-                    value=METRICS_ROBUSTNESS_ENABLED_DEFAULT,
+                    key="compute_robustness",
                 )
                 if compute_robustness:
-                    robustness_noise_sigma = st.slider(
+                    st.slider(
                         "Robustness noise sigma",
                         min_value=0.0,
                         max_value=0.5,
-                        value=float(METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT),
+                        key="robustness_noise_sigma",
                         step=0.01,
                     )
+                active_topk_fracs = tuple(float(value) for value in st.session_state["robustness_topk_fracs"])
+                st.caption(
+                    "Robustness IoU cutoffs for this preset: "
+                    + ", ".join(f"{int(round(value * 100.0))}%" for value in active_topk_fracs)
+                )
 
     setup_footer_left, setup_footer_right = st.columns([0.72, 0.28], gap="medium")
     with setup_footer_left:
@@ -1268,6 +1405,35 @@ with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_pan
         )
     with setup_footer_right:
         run_clicked = st.button("Run analysis", type="primary", on_click=collapse_setup_panel)
+
+score_type = str(st.session_state["score_type"])
+ig_steps = int(st.session_state["ig_steps"])
+ig_internal_batch_size = int(st.session_state["ig_internal_batch_size"])
+ig_blur_radius = float(st.session_state["ig_blur_radius"])
+occ_patch_size = int(st.session_state["occ_patch_size"])
+occ_stride = int(st.session_state["occ_stride"])
+occ_baseline_type = str(st.session_state["occ_baseline_type"])
+occ_blur_radius = float(st.session_state["occ_blur_radius"])
+lime_n_samples = int(st.session_state["lime_n_samples"])
+lime_perturbations_per_eval = int(st.session_state["lime_perturbations_per_eval"])
+lime_n_segments = int(st.session_state["lime_n_segments"])
+lime_compactness = float(st.session_state["lime_compactness"])
+lime_sigma = float(st.session_state["lime_sigma"])
+lime_blur_radius = float(st.session_state["lime_blur_radius"])
+lime_random_seed = int(st.session_state["lime_random_seed"])
+compute_metrics = bool(st.session_state["compute_metrics"])
+metrics_seed = int(st.session_state["metrics_seed"])
+metrics_slic_segments = int(st.session_state["metrics_slic_segments"])
+metrics_slic_compactness = float(st.session_state["metrics_slic_compactness"])
+metrics_slic_sigma = float(st.session_state["metrics_slic_sigma"])
+faithfulness_steps = int(st.session_state["faithfulness_steps"])
+faithfulness_blur_radius = float(st.session_state["faithfulness_blur_radius"])
+sensitivity_top_n = int(st.session_state["sensitivity_top_n"])
+sensitivity_n_random = int(st.session_state["sensitivity_n_random"])
+sensitivity_blur_radius = float(st.session_state["sensitivity_blur_radius"])
+compute_robustness = bool(st.session_state["compute_robustness"])
+robustness_noise_sigma = float(st.session_state["robustness_noise_sigma"])
+robustness_topk_fracs = tuple(float(value) for value in st.session_state["robustness_topk_fracs"])
 
 comparison_methods: list[str] = []
 for method_name in [explain_method, *comparison_selection]:
@@ -1305,6 +1471,7 @@ def build_request_for_method(method_name: str, metrics_enabled: bool) -> dict[st
         ig_blur_radius=float(ig_blur_radius),
         occ_patch_size=occ_patch_size,
         occ_stride=occ_stride,
+        occ_baseline_type=occ_baseline_type,
         occ_blur_radius=float(occ_blur_radius),
         lime_n_samples=lime_n_samples,
         lime_perturbations_per_eval=lime_perturbations_per_eval,
@@ -1325,6 +1492,7 @@ def build_request_for_method(method_name: str, metrics_enabled: bool) -> dict[st
         sensitivity_blur_radius=float(sensitivity_blur_radius),
         compute_robustness=bool(compute_robustness),
         robustness_noise_sigma=float(robustness_noise_sigma),
+        robustness_topk_fracs=tuple(float(value) for value in robustness_topk_fracs),
     )
 
 
@@ -1571,7 +1739,7 @@ with metrics_tab:
                 {"Metric": "Drop Top", "Value": metric_to_display(selected_metrics.get("drop_top"))},
                 {"Metric": "Drop Random Mean", "Value": metric_to_display(selected_metrics.get("drop_rand_mean"))},
             ]
-            for frac in METRICS_ROBUSTNESS_TOPK_FRACS_DEFAULT:
+            for frac in robustness_topk_fracs:
                 key = f"iou_top_{int(round(float(frac) * 100.0))}pct"
                 if key in selected_metrics:
                     metric_details_rows.append(

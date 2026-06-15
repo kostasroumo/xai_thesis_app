@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 import torch
@@ -25,6 +25,7 @@ def generate_occlusion(
     score_type: ScoreType = "logit",
     patch_size: int = 24,
     stride: int = 12,
+    baseline_type: Literal["blur", "zero"] = "blur",
     blur_radius: float = 4.0,
 ) -> np.ndarray:
     if input_tensor.ndim != 4 or input_tensor.size(0) != 1:
@@ -37,7 +38,10 @@ def generate_occlusion(
     model.eval()
     device = next(model.parameters()).device
     input_batch = input_tensor.to(device)
-    baseline = build_blur_baseline(image, transform, device=device, blur_radius=blur_radius)
+    if baseline_type == "zero":
+        baseline = torch.zeros_like(input_batch)
+    else:
+        baseline = build_blur_baseline(image, transform, device=device, blur_radius=blur_radius)
 
     forward_fn = build_target_score_forward(model, target_class=target_class, score_type=score_type)
     occlusion = Occlusion(forward_fn)
