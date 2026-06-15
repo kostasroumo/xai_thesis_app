@@ -12,3 +12,4 @@ opencv-python-headless
 matplotlib
 scikit-image
 scikit-learn
+open_clip_torch
