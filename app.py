@@ -86,9 +86,9 @@ THESIS_OCC_STRIDE = int(_cfg("THESIS_OCC_STRIDE", 12))
 THESIS_OCC_BASELINE_TYPE = str(_cfg("THESIS_OCC_BASELINE_TYPE", "zero"))
 THESIS_OCC_BASELINE_BLUR_RADIUS = float(_cfg("THESIS_OCC_BASELINE_BLUR_RADIUS", 4.0))
 THESIS_LIME_N_SAMPLES = int(_cfg("THESIS_LIME_N_SAMPLES", 1500))
-THESIS_LIME_PERTURBATIONS_PER_EVAL = int(_cfg("THESIS_LIME_PERTURBATIONS_PER_EVAL", 128))
-THESIS_LIME_N_SEGMENTS = int(_cfg("THESIS_LIME_N_SEGMENTS", 140))
-THESIS_LIME_COMPACTNESS = float(_cfg("THESIS_LIME_COMPACTNESS", 12.0))
+THESIS_LIME_PERTURBATIONS_PER_EVAL = int(_cfg("THESIS_LIME_PERTURBATIONS_PER_EVAL", 32))
+THESIS_LIME_N_SEGMENTS = int(_cfg("THESIS_LIME_N_SEGMENTS", 40))
+THESIS_LIME_COMPACTNESS = float(_cfg("THESIS_LIME_COMPACTNESS", 10.0))
 THESIS_LIME_SIGMA = float(_cfg("THESIS_LIME_SIGMA", 1.0))
 THESIS_LIME_BASELINE_BLUR_RADIUS = float(_cfg("THESIS_LIME_BASELINE_BLUR_RADIUS", 2.0))
 THESIS_LIME_RANDOM_SEED = int(_cfg("THESIS_LIME_RANDOM_SEED", 0))
@@ -112,6 +112,7 @@ COMPARISON_LIMIT = 3
 APP_SETTINGS_PRESET = "App defaults"
 THESIS_SETTINGS_PRESET = "Thesis settings"
 SETTINGS_PRESET_OPTIONS = [APP_SETTINGS_PRESET, THESIS_SETTINGS_PRESET]
+SETTINGS_PRESET_REVISION = 2
 SEMANTIC_SETTINGS = SemanticSettings(
     slic_n_segments=SEMANTIC_SLIC_SEGMENTS_DEFAULT,
     slic_compactness=SEMANTIC_SLIC_COMPACTNESS_DEFAULT,
@@ -475,26 +476,43 @@ def initialize_settings_state() -> None:
     if "settings_preset" not in st.session_state:
         st.session_state["settings_preset"] = APP_SETTINGS_PRESET
         apply_settings_preset(APP_SETTINGS_PRESET)
+        st.session_state["settings_preset_revision"] = SETTINGS_PRESET_REVISION
+        return
+
+    if int(st.session_state.get("settings_preset_revision", 0)) != SETTINGS_PRESET_REVISION:
+        active_preset_name = str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET))
+        apply_settings_preset(active_preset_name)
+        st.session_state["settings_preset_revision"] = SETTINGS_PRESET_REVISION
         return
 
     active_preset = SETTINGS_PRESETS.get(
         str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET)),
         APP_PRESET_VALUES,
     )
+    if "settings_preset_selector" not in st.session_state:
+        st.session_state["settings_preset_selector"] = str(
+            st.session_state.get("settings_preset", APP_SETTINGS_PRESET)
+        )
     for key, value in active_preset.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
 
-def apply_settings_preset(preset_name: str) -> None:
+def apply_settings_preset(preset_name: str, sync_selector: bool = True) -> None:
     preset_values = SETTINGS_PRESETS.get(preset_name, APP_PRESET_VALUES)
     for key, value in preset_values.items():
         st.session_state[key] = value
     st.session_state["settings_preset"] = preset_name
+    st.session_state["settings_preset_revision"] = SETTINGS_PRESET_REVISION
+    if sync_selector:
+        st.session_state["settings_preset_selector"] = preset_name
 
 
 def apply_selected_settings_preset() -> None:
-    apply_settings_preset(str(st.session_state.get("settings_preset", APP_SETTINGS_PRESET)))
+    apply_settings_preset(
+        str(st.session_state.get("settings_preset_selector", APP_SETTINGS_PRESET)),
+        sync_selector=False,
+    )
 
 
 def trim_analysis_cache(cache: OrderedDict[str, dict[str, Any]]) -> None:
@@ -1199,7 +1217,7 @@ with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_pan
         st.selectbox(
             "Settings preset",
             options=SETTINGS_PRESET_OPTIONS,
-            key="settings_preset",
+            key="settings_preset_selector",
             on_change=apply_selected_settings_preset,
             help="Apply the regular app defaults or auto-fill the thesis hyperparameters.",
         )
@@ -1601,7 +1619,9 @@ st.markdown(
     <div class="xai-callout">
         <strong>Current image:</strong> {uploaded_file.name} &nbsp;|&nbsp;
         <strong>Primary method:</strong> {explain_method} &nbsp;|&nbsp;
-        <strong>Comparison set:</strong> {", ".join(comparison_methods)}
+        <strong>Comparison set:</strong> {", ".join(comparison_methods)} &nbsp;|&nbsp;
+        <strong>Settings preset:</strong> {st.session_state.get("settings_preset", APP_SETTINGS_PRESET)} &nbsp;|&nbsp;
+        <strong>Score type:</strong> {score_type}
     </div>
     """,
     unsafe_allow_html=True,
