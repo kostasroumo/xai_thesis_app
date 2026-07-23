@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from PIL import Image, ImageFilter
 
-from src.data.preprocessing import preprocess_pil_image
+from src.data.preprocessing import preprocess_spatial_pil_image, rgb01_to_normalized_tensor
 
 ScoreType = Literal["logit", "prob"]
 
@@ -36,8 +36,10 @@ def build_blur_baseline(
     device: torch.device,
     blur_radius: float,
 ) -> torch.Tensor:
-    blurred = image.filter(ImageFilter.GaussianBlur(radius=float(blur_radius)))
-    return preprocess_pil_image(blurred, transform).to(device)
+    spatial_image = preprocess_spatial_pil_image(image, transform)
+    blurred = spatial_image.filter(ImageFilter.GaussianBlur(radius=float(blur_radius)))
+    rgb01 = np.asarray(blurred, dtype=np.float32) / 255.0
+    return rgb01_to_normalized_tensor(rgb01, transform, device=device)
 
 
 def attributions_to_normalized_heatmap(attributions: torch.Tensor) -> np.ndarray:

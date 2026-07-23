@@ -63,26 +63,26 @@ def _region_description(segmentation: np.ndarray, region_id: int) -> str:
     x_pos, y_pos = _region_centroid(segmentation, region_id)
 
     if x_pos < 0.33:
-        x_label = "left"
+        x_label = "αριστερή"
     elif x_pos > 0.67:
-        x_label = "right"
+        x_label = "δεξιά"
     else:
-        x_label = "center"
+        x_label = "κεντρική"
 
     if y_pos < 0.33:
-        y_label = "upper"
+        y_label = "πάνω"
     elif y_pos > 0.67:
-        y_label = "lower"
+        y_label = "κάτω"
     else:
-        y_label = "central"
+        y_label = "κεντρική"
 
-    if x_label == "center" and y_label == "central":
-        return "the center of the image"
-    if y_label == "central":
-        return f"the {x_label} side of the image"
-    if x_label == "center":
-        return f"the {y_label} part of the image"
-    return f"the {y_label}-{x_label} area"
+    if x_label == "κεντρική" and y_label == "κεντρική":
+        return "το κέντρο της εικόνας"
+    if y_label == "κεντρική":
+        return f"την {x_label} πλευρά της εικόνας"
+    if x_label == "κεντρική":
+        return f"το {y_label} μέρος της εικόνας"
+    return f"την {y_label}-{x_label} περιοχή"
 
 
 def _join_region_descriptions(descriptions: list[str]) -> str:
@@ -92,12 +92,12 @@ def _join_region_descriptions(descriptions: list[str]) -> str:
             unique_descriptions.append(description)
 
     if not unique_descriptions:
-        return "multiple scattered parts of the image"
+        return "διάσπαρτα σημεία της εικόνας"
     if len(unique_descriptions) == 1:
         return unique_descriptions[0]
     if len(unique_descriptions) == 2:
-        return f"{unique_descriptions[0]} and {unique_descriptions[1]}"
-    return f"{', '.join(unique_descriptions[:-1])}, and {unique_descriptions[-1]}"
+        return f"{unique_descriptions[0]} και {unique_descriptions[1]}"
+    return f"{', '.join(unique_descriptions[:-1])}, και {unique_descriptions[-1]}"
 
 
 def _border_mass(segmentation: np.ndarray, normalized_scores: np.ndarray, border_ratio: float = 0.12) -> float:
@@ -121,10 +121,10 @@ def _border_mass(segmentation: np.ndarray, normalized_scores: np.ndarray, border
 
 def _concentration_label(top_mass: float) -> str:
     if top_mass >= 0.65:
-        return "highly concentrated"
+        return "υψηλά συγκεντρωμένη"
     if top_mass >= 0.45:
-        return "moderately concentrated"
-    return "diffuse"
+        return "μέτρια συγκεντρωμένη"
+    return "διάχυτη"
 
 
 def analyze_regions(
@@ -200,13 +200,13 @@ def generate_summary_text(
 
     leakage_note = ""
     if region_analysis.leakage_flag:
-        leakage_note = " Some importance also leaks toward the image borders, so background cues may still influence the decision."
+        leakage_note = " Μέρος της σημασίας διαρρέει και προς τα όρια της εικόνας, άρα το υπόβαθρο μπορεί ακόμη να επηρεάζει την απόφαση."
 
     return [
-        f"The model predicted {predicted_class} with {confidence_pct}% confidence.",
-        f"The {method_name} explanation is {region_analysis.concentration_label}.",
-        f"The top {len(region_analysis.top_region_ids)} regions account for about {top_mass_pct}% of the total importance.",
-        f"The explanation focuses mainly on {region_analysis.top_region_summary}.{leakage_note}",
+        f"Το μοντέλο προέβλεψε την κλάση {predicted_class} με βεβαιότητα {confidence_pct}%.",
+        f"Η εξήγηση με {method_name} είναι {region_analysis.concentration_label}.",
+        f"Οι {len(region_analysis.top_region_ids)} σημαντικότερες περιοχές καλύπτουν περίπου το {top_mass_pct}% της συνολικής σημασίας.",
+        f"Η εξήγηση εστιάζει κυρίως σε {region_analysis.top_region_summary}.{leakage_note}",
     ]
 
 

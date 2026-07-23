@@ -37,6 +37,7 @@ class SemanticSettings:
     slic_compactness: float = 10.0
     slic_sigma: float = 1.0
     top_k_superpixels: int = 10
+    crop_pad: int = 30
     clip_model_name: str = "ViT-B-32"
     clip_pretrained: str = "laion2b_s34b_b79k"
 
@@ -56,7 +57,7 @@ def _load_open_clip() -> Any:
         import open_clip  # type: ignore[import-not-found]
     except ImportError as exc:
         raise RuntimeError(
-            "The semantic layer requires `open_clip_torch`. Add it to the environment to enable the Semantic tab."
+            "Το σημασιολογικό layer χρειάζεται το `open_clip_torch`. Πρόσθεσέ το στο περιβάλλον για να ενεργοποιηθεί η σημασιολογική ανάλυση."
         ) from exc
     return open_clip
 
@@ -139,27 +140,85 @@ def _build_focus_image(
 
 
 @torch.no_grad()
-def _clip_scores(image_pil: Image.Image, runtime: SemanticRuntime) -> dict[str, float]:
-    image_input = runtime.clip_preprocess(image_pil).unsqueeze(0).to(runtime.device)
+def _classify_crop_with_clip(crop_pil: Image.Image, runtime: SemanticRuntime) -> tuple[str, float]:
+    image_input = runtime.clip_preprocess(crop_pil).unsqueeze(0).to(runtime.device)
     image_features = runtime.clip_model.encode_image(image_input)
     image_features = image_features / image_features.norm(dim=-1, keepdim=True)
 
-    sims = (image_features @ runtime.text_features.T)[0].detach().cpu().numpy().astype(np.float32)
-    sims = sims - float(sims.min())
-    sims = sims / (float(sims.sum()) + 1e-8)
+    sim = image_features @ runtime.text_features.T
+    probs = sim.softmax(dim=-1)[0].detach().cpu().numpy().astype(np.float32)
+    best_idx = int(np.argmax(probs))
+    return str(runtime.concepts_en[best_idx]), float(probs[best_idx])
 
-    scores = {
-        str(runtime.concepts_gr[concept_en]): float(score * 100.0)
-        for concept_en, score in zip(runtime.concepts_en, sims.tolist(), strict=False)
+
+def _crop_superpixel(
+    img_rgb01: np.ndarray,
+    seg: np.ndarray,
+    sp_id: int,
+    pad: int,
+) -> Image.Image:
+    mask = seg == sp_id
+    ys, xs = np.where(mask)
+    if ys.size == 0 or xs.size == 0:
+        return Image.fromarray((np.clip(img_rgb01, 0.0, 1.0) * 255.0).astype(np.uint8))
+
+    y1, y2 = int(ys.min()), int(ys.max())
+    x1, x2 = int(xs.min()), int(xs.max())
+
+    y1 = max(0, y1 - int(pad))
+    y2 = min(img_rgb01.shape[0] - 1, y2 + int(pad))
+    x1 = max(0, x1 - int(pad))
+    x2 = min(img_rgb01.shape[1] - 1, x2 + int(pad))
+
+    crop = img_rgb01[y1 : y2 + 1, x1 : x2 + 1]
+    return Image.fromarray((np.clip(crop, 0.0, 1.0) * 255.0).astype(np.uint8))
+
+
+def _semantic_from_superpixels(
+    img_rgb01: np.ndarray,
+    seg: np.ndarray,
+    sp_scores: np.ndarray,
+    runtime: SemanticRuntime,
+    top_superpixel_ids: list[int],
+    crop_pad: int,
+) -> tuple[dict[str, float], pd.DataFrame]:
+    concept_scores = {concept: 0.0 for concept in runtime.concepts_en}
+    details: list[dict[str, Any]] = []
+
+    for sp_id in top_superpixel_ids:
+        importance = float(abs(sp_scores[int(sp_id)]))
+        crop_pil = _crop_superpixel(img_rgb01, seg, int(sp_id), pad=int(crop_pad))
+        concept_en, clip_conf = _classify_crop_with_clip(crop_pil, runtime)
+
+        concept_scores[concept_en] += importance
+        details.append(
+            {
+                "Superpixel ID": int(sp_id),
+                "Σημασία": importance,
+                "Έννοια": str(runtime.concepts_gr[concept_en]),
+                "CLIP Βεβαιότητα": float(clip_conf),
+            }
+        )
+
+    total = float(sum(concept_scores.values())) + 1e-8
+    concept_scores_pct = {
+        str(runtime.concepts_gr[concept_en]): 100.0 * float(value) / total
+        for concept_en, value in concept_scores.items()
+        if float(value) > 0.0
     }
-    return dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))
+    concept_scores_pct = dict(sorted(concept_scores_pct.items(), key=lambda item: item[1], reverse=True))
+    return concept_scores_pct, pd.DataFrame(details)
 
 
 def _top_concepts_text(scores: Mapping[str, float], k: int = 3) -> str:
-    items = list(scores.items())[:k]
-    if not items:
-        return "Δεν προέκυψαν σταθερά concepts."
-    return ", ".join([f"{name} ({value:.1f}%)" for name, value in items])
+    names = [str(name) for name, _ in list(scores.items())[:k]]
+    if len(names) >= 3:
+        return f"{names[0]}, {names[1]} και {names[2]}"
+    if len(names) == 2:
+        return f"{names[0]} και {names[1]}"
+    if len(names) == 1:
+        return names[0]
+    return "Δεν προέκυψε σταθερή semantic εξήγηση."
 
 
 def _make_greek_summary(
@@ -168,24 +227,23 @@ def _make_greek_summary(
     concept_scores: Mapping[str, float],
 ) -> str:
     if not concept_scores:
-        return (
-            f"Το μοντέλο ταξινόμησε την εικόνα ως {predicted_class} "
-            f"με πιθανότητα {confidence:.1%}, αλλά δεν προέκυψε σταθερή semantic ανάγνωση."
-        )
+        return "Δεν προέκυψε σταθερή semantic εξήγηση."
 
     background_score = float(concept_scores.get("υπόβαθρο", 0.0))
     top_text = _top_concepts_text(concept_scores, k=3)
 
-    if background_score >= 20.0:
+    if background_score >= 25.0:
         return (
             f"Το μοντέλο ταξινόμησε την εικόνα ως {predicted_class} με πιθανότητα {confidence:.1%}. "
-            f"Στη focused semantic περιοχή κυριαρχούν τα concepts {top_text}, "
-            f"με αισθητή παρουσία υποβάθρου ({background_score:.1f}%)."
+            "Η semantic εξήγηση είναι μέτριας αξιοπιστίας, "
+            "καθώς σημαντικό μέρος της απόδοσης σχετίζεται με το υπόβαθρο. "
+            f"Τα κυρίαρχα concepts ήταν: {top_text}."
         )
 
     return (
-        f"Το μοντέλο ταξινόμησε την εικόνα ως {predicted_class} με πιθανότητα {confidence:.1%}. "
-        f"Στη focused semantic περιοχή κυριαρχούν τα concepts {top_text}."
+        f"Το μοντέλο ταξινόμησε την εικόνα ως {predicted_class} "
+        f"με πιθανότητα {confidence:.1%}, με κύρια εστίαση σε "
+        f"{top_text}."
     )
 
 
@@ -193,11 +251,11 @@ def _build_score_table(concept_scores: Mapping[str, float]) -> pd.DataFrame:
     rows = [
         {
             "Έννοια": concept_name,
-            "Semantic Score (%)": float(score),
+            "Σημασιολογικό Σκορ (%)": float(score),
         }
         for concept_name, score in concept_scores.items()
     ]
-    return pd.DataFrame(rows, columns=["Έννοια", "Semantic Score (%)"])
+    return pd.DataFrame(rows, columns=["Έννοια", "Σημασιολογικό Σκορ (%)"])
 
 
 def run_semantic_pipeline(
@@ -222,8 +280,14 @@ def run_semantic_pipeline(
         sp_scores=sp_scores,
         top_k=resolved_settings.top_k_superpixels,
     )
-    focus_pil = Image.fromarray((np.clip(focus_rgb01, 0.0, 1.0) * 255.0).astype(np.uint8))
-    concept_scores = _clip_scores(focus_pil, runtime)
+    concept_scores, details_df = _semantic_from_superpixels(
+        img_rgb01=img_rgb01,
+        seg=seg,
+        sp_scores=sp_scores,
+        runtime=runtime,
+        top_superpixel_ids=top_superpixel_ids,
+        crop_pad=resolved_settings.crop_pad,
+    )
     score_table = _build_score_table(concept_scores)
     focus_area_pct = float(focus_mask.mean() * 100.0) if focus_mask.size else 0.0
 
@@ -236,6 +300,7 @@ def run_semantic_pipeline(
         "concept_scores": concept_scores,
         "top_concepts": list(concept_scores.items())[:3],
         "score_table": score_table,
+        "details_df": details_df,
         "summary_gr": _make_greek_summary(predicted_class, float(confidence), concept_scores),
         "top_concepts_text": _top_concepts_text(concept_scores, k=3),
     }

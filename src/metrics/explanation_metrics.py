@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Any, Callable, Literal
 
 import cv2
 import numpy as np
@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 from skimage.segmentation import slic
+
+from src.data.preprocessing import pil_to_model_rgb01, rgb01_to_normalized_tensor
 
 ScoreType = Literal["logit", "prob"]
 
@@ -45,9 +47,20 @@ def _target_score(
         return float(probs[0, int(target_class)].item())
 
 
-def _pil_to_rgb01(image: Image.Image, height: int, width: int) -> np.ndarray:
-    resized = image.resize((width, height))
-    return np.asarray(resized).astype(np.float32) / 255.0
+def _pil_to_rgb01(
+    image: Image.Image,
+    height: int,
+    width: int,
+    transform: Callable[[Image.Image], torch.Tensor],
+) -> np.ndarray:
+    rgb01 = pil_to_model_rgb01(image, transform)
+    if rgb01.shape[:2] != (height, width):
+        rgb01 = cv2.resize(
+            rgb01.astype(np.float32),
+            (width, height),
+            interpolation=cv2.INTER_LINEAR,
+        )
+    return np.ascontiguousarray(rgb01.astype(np.float32, copy=False))
 
 
 def _slic_segments(
@@ -62,6 +75,8 @@ def _slic_segments(
         compactness=float(compactness),
         sigma=float(sigma),
         start_label=0,
+        channel_axis=-1,
+        enforce_connectivity=True,
     ).astype(np.int64)
 
 
@@ -111,8 +126,7 @@ def _rgb01_to_input_tensor(
     transform: Callable[[Image.Image], torch.Tensor],
     device: torch.device,
 ) -> torch.Tensor:
-    pil = Image.fromarray((np.clip(rgb01, 0.0, 1.0) * 255.0).astype(np.uint8))
-    return transform(pil).unsqueeze(0).to(device)
+    return rgb01_to_normalized_tensor(rgb01, transform, device=device)
 
 
 def _hoyer_sparsity(values: np.ndarray) -> float:
@@ -168,7 +182,7 @@ def compute_explanation_metrics(
     settings: MetricSettings,
     random_seed: int = 0,
     noisy_cam: np.ndarray | None = None,
-) -> dict[str, float | int | list[float]]:
+) -> dict[str, Any]:
     if input_tensor.ndim != 4 or input_tensor.size(0) != 1:
         raise ValueError("input_tensor must have shape [1, C, H, W].")
     if cam.ndim != 2:
@@ -183,7 +197,7 @@ def compute_explanation_metrics(
     input_batch = input_tensor.to(device)
 
     height, width = cam.shape
-    rgb01 = _pil_to_rgb01(image=image, height=height, width=width)
+    rgb01 = _pil_to_rgb01(image=image, height=height, width=width, transform=transform)
     seg = _slic_segments(
         image_rgb01=rgb01,
         n_segments=settings.slic_n_segments,

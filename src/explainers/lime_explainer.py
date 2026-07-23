@@ -9,6 +9,7 @@ from PIL import Image
 from captum.attr import Lime
 from skimage.segmentation import slic
 
+from src.data.preprocessing import pil_to_model_rgb01
 from src.explainers.common import (
     ScoreType,
     attributions_to_normalized_heatmap,
@@ -20,6 +21,7 @@ from src.explainers.common import (
 
 def _build_slic_feature_mask(
     image: Image.Image,
+    transform: Callable[[Image.Image], torch.Tensor],
     height: int,
     width: int,
     n_segments: int,
@@ -27,14 +29,18 @@ def _build_slic_feature_mask(
     sigma: float,
     device: torch.device,
 ) -> torch.Tensor:
-    resized = image.resize((width, height))
-    rgb01 = np.asarray(resized).astype(np.float32) / 255.0
+    rgb01 = pil_to_model_rgb01(image, transform)
+    if rgb01.shape[:2] != (height, width):
+        resized = Image.fromarray((np.clip(rgb01, 0.0, 1.0) * 255.0).astype(np.uint8)).resize((width, height))
+        rgb01 = np.asarray(resized, dtype=np.float32) / 255.0
     segments = slic(
         rgb01,
         n_segments=int(n_segments),
         compactness=float(compactness),
         sigma=float(sigma),
         start_label=0,
+        channel_axis=-1,
+        enforce_connectivity=True,
     ).astype(np.int64)
     return torch.from_numpy(segments)[None, None].to(device)
 
@@ -71,6 +77,7 @@ def generate_lime(
     _, _, height, width = input_batch.shape
     feature_mask = _build_slic_feature_mask(
         image=image,
+        transform=transform,
         height=height,
         width=width,
         n_segments=n_segments,
