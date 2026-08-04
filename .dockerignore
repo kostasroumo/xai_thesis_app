@@ -1,10 +1,11 @@
-.venv/
-__pycache__/
+.git
+.venv
+__pycache__
 *.pyc
 .DS_Store
-.cache/
+.streamlit/secrets.toml
 Bengal_75_xai_report.pdf
 app_layout.png
 src.zip
 xai_app_chatgpt_handoff.zip
-handoff/
+handoff

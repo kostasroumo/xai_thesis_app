@@ -4,11 +4,13 @@ import gc
 import hashlib
 import time
 from collections import OrderedDict
+from html import escape
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import cv2
 import streamlit as st
 import torch
 from PIL import Image
@@ -41,6 +43,9 @@ def _cfg(name: str, default: Any) -> Any:
 
 
 AVAILABLE_METHODS = ["Grad-CAM", "Integrated Gradients", "Occlusion", "LIME"]
+METHOD_HEATMAP_COLORMAPS = {
+    "LIME": cv2.COLORMAP_VIRIDIS,
+}
 ANALYSIS_CACHE_MAX_ENTRIES = int(_cfg("ANALYSIS_CACHE_MAX_ENTRIES", 3))
 CAM_OVERLAY_ALPHA = float(_cfg("CAM_OVERLAY_ALPHA", 0.45))
 CAM_SCORE_TYPE_DEFAULT = str(_cfg("CAM_SCORE_TYPE_DEFAULT", "logit"))
@@ -90,6 +95,15 @@ TOP_K = int(_cfg("TOP_K", 5))
 
 SUMMARY_TOP_K = 3
 COMPARISON_LIMIT = 3
+SECTION_QUERY_PARAM = "section"
+SECTION_NAV_ITEMS = [
+    ("overview", "01", "Single Image Analysis"),
+    ("semantic", "02", "Semantic Evidence"),
+    ("metrics", "03", "Metrics Evaluation"),
+    ("counterfactual", "04", "Counterfactual"),
+    ("shared", "05", "Shared Focus"),
+]
+VALID_SECTIONS = {item[0] for item in SECTION_NAV_ITEMS}
 SEMANTIC_SETTINGS = SemanticSettings(
     slic_n_segments=SEMANTIC_SLIC_SEGMENTS_DEFAULT,
     slic_compactness=SEMANTIC_SLIC_COMPACTNESS_DEFAULT,
@@ -99,88 +113,431 @@ SEMANTIC_SETTINGS = SemanticSettings(
     clip_pretrained=SEMANTIC_CLIP_PRETRAINED,
 )
 
-st.set_page_config(page_title="XAI Thesis App", layout="wide")
+st.set_page_config(page_title="XAI Thesis App", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
 
     :root {
-        --panel-bg: linear-gradient(135deg, #f6f2ea 0%, #fffaf2 100%);
-        --hero-bg:
-            radial-gradient(circle at top left, rgba(229, 168, 94, 0.20), transparent 34%),
-            linear-gradient(135deg, #f6f0e6 0%, #fff8f1 48%, #f0e8dd 100%);
-        --panel-line: rgba(106, 73, 41, 0.12);
-        --panel-text: #2a221b;
-        --accent: #b65f2c;
-        --accent-soft: rgba(182, 95, 44, 0.12);
-        --muted: #67584b;
-        --card-bg: rgba(255, 255, 255, 0.88);
+        --app-bg: #f5f7fb;
+        --surface: #ffffff;
+        --surface-soft: #f8faff;
+        --surface-tint: #f1f4ff;
+        --nav-bg: #071120;
+        --nav-bg-2: #101a2c;
+        --ink: #0f172a;
+        --ink-soft: #475569;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --line-strong: #cbd5e1;
+        --accent: #6545f6;
+        --accent-2: #4f6df5;
+        --accent-soft: #ede9fe;
+        --success: #15803d;
+        --success-soft: #dcfce7;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+        --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
+        --shadow-lg: 0 24px 70px rgba(15, 23, 42, 0.12);
+        --radius: 16px;
+        --radius-sm: 11px;
     }
 
     html, body, [class*="css"] {
-        font-family: "Manrope", sans-serif;
+        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
     }
 
     h1, h2, h3 {
-        font-family: "Fraunces", serif;
-        letter-spacing: -0.02em;
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        letter-spacing: -0.035em;
+        color: var(--ink);
     }
 
-    .block-container {
-        padding-top: 1.0rem;
-        padding-bottom: 1.6rem;
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 72% -6%, rgba(101, 69, 246, 0.14), transparent 35%),
+            linear-gradient(180deg, #fbfdff 0%, var(--app-bg) 46%, #eef3fb 100%);
     }
 
-    [data-testid="stSidebar"] {
-        display: none;
+    [data-testid="stHeader"] {
+        background: rgba(245, 247, 251, 0.72);
+        backdrop-filter: blur(14px);
     }
 
     [data-testid="collapsedControl"] {
         display: none;
     }
 
-    .xai-hero {
-        background: var(--hero-bg);
-        border: 1px solid rgba(106, 73, 41, 0.13);
-        border-radius: 24px;
-        padding: 1.15rem 1.2rem;
-        box-shadow: 0 14px 30px rgba(92, 64, 36, 0.08);
-        color: var(--panel-text);
-        margin-bottom: 1rem;
+    .block-container {
+        padding-top: 1.35rem;
+        padding-bottom: 2.2rem;
+        max-width: 1560px;
     }
 
-    .xai-hero-grid {
+    [data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 18% 2%, rgba(101, 69, 246, 0.36), transparent 32%),
+            linear-gradient(180deg, var(--nav-bg-2), var(--nav-bg));
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 16px 0 40px rgba(15, 23, 42, 0.18);
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        background: transparent;
+        padding: 1.45rem 1rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+    [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {
+        color: #dbe7ff;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] {
         display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.85fr);
-        gap: 1rem;
-        align-items: start;
+        gap: 0.55rem;
     }
 
-    .xai-hero-kicker {
-        text-transform: uppercase;
-        letter-spacing: 0.16em;
-        font-size: 0.76rem;
-        color: #9f5a29;
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 0.72rem 0.78rem;
+        margin: 0;
+        transition: background 140ms ease, border 140ms ease, transform 140ms ease;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.12);
+        transform: translateX(2px);
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        border-color: rgba(255, 255, 255, 0.10);
+        box-shadow: 0 12px 28px rgba(101, 69, 246, 0.28);
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label p {
+        color: #dbe7ff;
         font-weight: 800;
+        font-size: 0.92rem;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff;
+    }
+
+    .xai-side-rail {
+        position: fixed;
+        z-index: 999;
+        top: 0;
+        left: 0;
+        width: 268px;
+        height: 100vh;
+        padding: 1.65rem 1.1rem;
+        background:
+            radial-gradient(circle at 20% 4%, rgba(101, 69, 246, 0.36), transparent 30%),
+            linear-gradient(180deg, var(--nav-bg-2), var(--nav-bg));
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 16px 0 40px rgba(15, 23, 42, 0.18);
+        color: #e5edff;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .xai-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.35rem 0.35rem 1.45rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+        margin-bottom: 1.1rem;
+    }
+
+    .xai-brand-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(101, 69, 246, 0.18);
+        border: 1px solid rgba(154, 138, 255, 0.62);
+        color: #b7a8ff;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+    }
+
+    .xai-brand-title {
+        font-weight: 800;
+        font-size: 1.08rem;
+        letter-spacing: -0.03em;
+        color: #ffffff;
+    }
+
+    .xai-brand-subtitle {
+        color: #94a3b8;
+        font-size: 0.78rem;
+        margin-top: 0.08rem;
+    }
+
+    .xai-nav {
+        display: grid;
+        gap: 0.55rem;
+    }
+
+    .xai-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.72rem;
+        padding: 0.78rem 0.85rem;
+        border-radius: 12px;
+        color: #cbd5e1;
+        font-weight: 700;
+        font-size: 0.94rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+
+    a.xai-nav-item:visited {
+        color: #cbd5e1;
+    }
+
+    .xai-nav-item:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #ffffff;
+        text-decoration: none;
+        transform: translateX(2px);
+    }
+
+    .xai-nav-item.active {
+        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        color: #ffffff;
+        box-shadow: 0 12px 28px rgba(101, 69, 246, 0.28);
+    }
+
+    a.xai-nav-item.active:visited {
+        color: #ffffff;
+    }
+
+    .xai-nav-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(203, 213, 225, 0.30);
+        font-size: 0.72rem;
+        color: inherit;
+    }
+
+    .xai-rail-spacer {
+        flex: 1;
+    }
+
+    .xai-rail-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.10);
+        padding: 1rem 0.35rem 0;
+        color: #94a3b8;
+        font-size: 0.82rem;
+        line-height: 1.45;
+    }
+
+    .xai-page-heading {
+        margin: 0.35rem 0 1.0rem;
+    }
+
+    .xai-page-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent);
+        font-size: 0.74rem;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+    }
+
+    .xai-page-title {
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-size: clamp(2rem, 3vw, 3.15rem);
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.055em;
+        color: var(--ink);
+        margin-bottom: 0.38rem;
+    }
+
+    .xai-page-subtitle {
+        color: var(--ink-soft);
+        max-width: 82ch;
+        font-size: 1.01rem;
+        line-height: 1.55;
+    }
+
+    [data-testid="stExpander"] {
+        border: 1px solid rgba(203, 213, 225, 0.82);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    [data-testid="stExpander"] details,
+    [data-testid="stExpander"] details > div {
+        background: rgba(255, 255, 255, 0.98);
+    }
+
+    [data-testid="stExpander"] summary {
+        font-weight: 800;
+        color: var(--ink) !important;
+        letter-spacing: -0.01em;
+    }
+
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] h5 {
+        color: var(--ink) !important;
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.03em;
         margin-bottom: 0.45rem;
     }
 
-    .xai-hero-title {
-        font-family: "Fraunces", serif;
-        font-size: 1.95rem;
-        line-height: 1.08;
-        margin: 0 0 0.45rem 0;
-        max-width: 17ch;
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stExpander"] label,
+    [data-testid="stExpander"] label p,
+    [data-testid="stExpander"] span,
+    [data-testid="stExpander"] small {
+        color: var(--ink-soft) !important;
     }
 
-    .xai-hero-copy {
-        margin: 0;
-        max-width: 70ch;
-        line-height: 1.62;
-        color: #43372b;
-        font-size: 1rem;
+    [data-testid="stExpander"] label p {
+        font-weight: 750;
+    }
+
+    [data-testid="stExpander"] [data-testid="stCaptionContainer"] {
+        color: var(--muted) !important;
+    }
+
+    [data-testid="stExpander"] [data-baseweb="radio"],
+    [data-testid="stExpander"] [data-baseweb="select"] {
+        background: rgba(255, 255, 255, 0.78);
+        border-radius: 12px;
+    }
+
+    [data-testid="stFileUploader"] section {
+        min-height: 190px;
+        border: 2px dashed rgba(101, 69, 246, 0.34);
+        background:
+            radial-gradient(circle at 50% 20%, rgba(101, 69, 246, 0.08), transparent 42%),
+            #fbfbff;
+        border-radius: var(--radius);
+    }
+
+    [data-testid="stExpander"] [data-testid="stFileUploader"] section {
+        border-color: rgba(101, 69, 246, 0.42);
+        background:
+            radial-gradient(circle at 50% 20%, rgba(101, 69, 246, 0.10), transparent 42%),
+            #ffffff;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+    }
+
+    [data-testid="stExpander"] [data-testid="stFileUploader"] button {
+        background: var(--nav-bg) !important;
+        border-color: var(--nav-bg) !important;
+        color: #ffffff !important;
+        border-radius: 11px;
+        font-weight: 800;
+    }
+
+    [data-testid="stExpander"] [data-testid="stFileUploader"] svg {
+        color: #94a3b8 !important;
+    }
+
+    .stButton > button,
+    .stDownloadButton > button {
+        border-radius: 12px;
+        border: 1px solid var(--accent);
+        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        color: #ffffff;
+        font-weight: 800;
+        box-shadow: var(--shadow-sm);
+        min-height: 2.85rem;
+        transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        filter: brightness(0.98);
+        box-shadow: 0 14px 28px rgba(101, 69, 246, 0.20);
+        color: #ffffff;
+        border-color: #5b35e5;
+    }
+
+    .stButton > button[kind="secondary"] {
+        background: #ffffff;
+        color: var(--accent);
+        border-color: var(--line);
+        box-shadow: var(--shadow-sm);
+    }
+
+    [data-baseweb="radio"] {
+        gap: 0.4rem;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.45rem;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.72);
+        border-radius: 15px;
+        padding: 0.38rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 11px;
+        padding: 0.72rem 1rem;
+        color: var(--ink-soft);
+        font-weight: 800;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    [data-testid="stDataFrame"] {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    [data-testid="stImage"] img {
+        border-radius: 13px;
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-sm);
+        background: #ffffff;
+    }
+
+    [data-testid="stMetric"],
+    section.main [data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: var(--line) !important;
+        border-radius: var(--radius) !important;
+        box-shadow: var(--shadow-sm);
+        background: rgba(255, 255, 255, 0.92);
     }
 
     .xai-step-grid {
@@ -191,155 +548,404 @@ st.markdown(
     }
 
     .xai-step-card {
-        background: rgba(255, 255, 255, 0.84);
-        border: 1px solid rgba(106, 73, 41, 0.12);
-        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
         padding: 0.95rem;
-        min-height: 120px;
+        min-height: 112px;
+        box-shadow: var(--shadow-sm);
     }
 
     .xai-step-card h4 {
         margin: 0 0 0.4rem 0;
-        color: var(--panel-text);
+        color: var(--ink);
+        font-weight: 800;
+        letter-spacing: -0.025em;
     }
 
     .xai-step-card p {
         margin: 0;
-        color: #5e4e41;
+        color: var(--ink-soft);
         line-height: 1.55;
-        font-size: 0.95rem;
+        font-size: 0.94rem;
+    }
+
+    .xai-callout,
+    .xai-panel,
+    .xai-kpi,
+    .xai-compare-card,
+    .xai-dashboard-card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
     }
 
     .xai-callout {
-        background: rgba(255, 250, 243, 0.95);
-        border: 1px solid rgba(106, 73, 41, 0.12);
-        border-radius: 18px;
-        padding: 1rem 1.05rem;
-        margin-bottom: 1rem;
-        color: var(--panel-text);
+        border-left: 4px solid var(--accent);
+        padding: 0.95rem 1rem;
+        margin-bottom: 0.85rem;
+        color: var(--ink);
     }
 
     .xai-callout strong {
         color: var(--accent);
     }
 
-    .xai-hero-side {
-        display: grid;
-        gap: 0.75rem;
-    }
-
-    .xai-hero-pill {
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(106, 73, 41, 0.11);
-        border-radius: 16px;
-        padding: 0.85rem 0.9rem;
-    }
-
-    .xai-hero-pill strong {
-        display: block;
-        font-size: 0.92rem;
-        margin-bottom: 0.18rem;
-        color: var(--panel-text);
-    }
-
-    .xai-hero-pill span {
-        display: block;
-        color: #5b4d3f;
-        font-size: 0.9rem;
-        line-height: 1.45;
-    }
-
     .xai-panel {
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-line);
-        border-radius: 18px;
-        padding: 1rem 1.1rem;
-        color: var(--panel-text);
-        box-shadow: 0 12px 28px rgba(92, 64, 36, 0.08);
+        padding: 1rem 1.05rem;
+        color: var(--ink);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .xai-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        background: var(--accent);
     }
 
     .xai-panel h4 {
-        margin: 0 0 0.55rem 0;
-        color: var(--panel-text);
-        letter-spacing: 0.02em;
+        margin: 0 0 0.5rem 0;
+        color: var(--ink);
+        letter-spacing: -0.025em;
+        font-weight: 800;
     }
 
     .xai-panel p {
         margin: 0.35rem 0;
-        line-height: 1.5;
-        color: var(--panel-text);
+        line-height: 1.55;
+        color: var(--ink-soft);
     }
 
     .xai-chip-row {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        margin-top: 0.7rem;
+        margin-top: 0.75rem;
     }
 
     .xai-chip {
-        background: var(--card-bg);
-        border: 1px solid var(--panel-line);
+        background: var(--accent-soft);
+        border: 1px solid rgba(101, 69, 246, 0.18);
         border-radius: 999px;
-        padding: 0.4rem 0.75rem;
-        font-size: 0.9rem;
-        color: var(--panel-text);
+        padding: 0.4rem 0.72rem;
+        font-size: 0.88rem;
+        color: #5035d4;
+        font-weight: 800;
     }
 
     .xai-kpi {
-        background: var(--card-bg);
-        border: 1px solid var(--panel-line);
-        border-radius: 16px;
-        padding: 0.85rem 0.95rem;
-        min-height: 110px;
+        padding: 0.9rem 0.95rem;
+        min-height: 112px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .xai-kpi::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
     }
 
     .xai-kpi-label {
-        font-size: 0.82rem;
+        font-size: 0.76rem;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.09em;
         color: var(--muted);
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.38rem;
+        font-weight: 800;
     }
 
     .xai-kpi-value {
-        font-size: 1.45rem;
-        font-weight: 700;
-        color: var(--panel-text);
+        font-size: 1.42rem;
+        font-weight: 800;
+        color: var(--ink);
         margin-bottom: 0.25rem;
+        line-height: 1.14;
+        overflow-wrap: anywhere;
     }
 
     .xai-kpi-note {
-        font-size: 0.88rem;
+        font-size: 0.86rem;
         color: var(--muted);
-        line-height: 1.35;
+        line-height: 1.4;
     }
 
     .xai-compare-card {
-        background: rgba(255, 251, 244, 0.9);
-        border: 1px solid var(--panel-line);
-        border-radius: 18px;
-        padding: 0.9rem;
+        padding: 0.8rem 0.9rem;
         min-height: 100%;
     }
 
     .xai-compare-title {
         font-size: 1rem;
-        font-weight: 700;
-        color: var(--panel-text);
+        font-weight: 800;
+        color: var(--ink);
         margin-bottom: 0.45rem;
     }
 
     .xai-section-note {
-        color: #6b594b;
+        color: var(--ink-soft);
         font-size: 0.94rem;
         margin-top: -0.15rem;
         margin-bottom: 0.85rem;
     }
 
+    .xai-section-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: 0.7rem 0 0.95rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .xai-section-eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.72rem;
+        color: var(--accent);
+        font-weight: 800;
+        margin-bottom: 0.22rem;
+    }
+
+    .xai-section-title {
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-size: 1.65rem;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+    }
+
+    .xai-section-subtitle {
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+        line-height: 1.45;
+        max-width: 82ch;
+        margin-top: 0.25rem;
+    }
+
+    .xai-analysis-grid {
+        display: grid;
+        grid-template-columns: minmax(320px, 0.82fr) minmax(420px, 1.18fr);
+        gap: 0.85rem;
+        margin: 0.55rem 0 0.9rem;
+    }
+
+    .xai-dashboard-card {
+        padding: 1.0rem;
+    }
+
+    .xai-card-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 0.72rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .xai-card-title {
+        font-weight: 800;
+        color: var(--ink);
+        letter-spacing: -0.025em;
+    }
+
+    .xai-ready-pill,
+    .xai-status-pill {
+        border-radius: 999px;
+        background: var(--success-soft);
+        color: var(--success);
+        border: 1px solid rgba(21, 128, 61, 0.18);
+        font-size: 0.78rem;
+        font-weight: 800;
+        padding: 0.36rem 0.62rem;
+        white-space: nowrap;
+    }
+
+    .xai-prediction-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .xai-prediction-label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.3rem;
+    }
+
+    .xai-prediction-class {
+        font-size: 1.58rem;
+        font-weight: 800;
+        color: var(--accent);
+        line-height: 1.14;
+        overflow-wrap: anywhere;
+    }
+
+    .xai-confidence-number {
+        font-size: 1.38rem;
+        font-weight: 800;
+        color: var(--ink);
+        margin-bottom: 0.45rem;
+    }
+
+    .xai-progress-track {
+        height: 8px;
+        border-radius: 999px;
+        background: #e8edf6;
+        overflow: hidden;
+    }
+
+    .xai-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7c3aed, var(--accent));
+    }
+
+    .xai-progress-scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.36rem;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 700;
+    }
+
+    .xai-top-predictions {
+        display: grid;
+        gap: 0.52rem;
+        margin-top: 0.92rem;
+        padding-top: 0.84rem;
+        border-top: 1px solid var(--line);
+    }
+
+    .xai-pred-row {
+        display: grid;
+        grid-template-columns: 22px minmax(120px, 0.9fr) minmax(90px, 1fr) 54px;
+        gap: 0.58rem;
+        align-items: center;
+        font-size: 0.84rem;
+        color: var(--ink-soft);
+        font-weight: 700;
+    }
+
+    .xai-pred-rank {
+        color: var(--muted);
+    }
+
+    .xai-pred-name {
+        color: var(--ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .xai-pred-bar {
+        height: 6px;
+        border-radius: 999px;
+        background: #e8edf6;
+        overflow: hidden;
+    }
+
+    .xai-pred-bar span {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent);
+    }
+
+    .xai-pred-value {
+        text-align: right;
+        color: var(--accent);
+        font-weight: 800;
+    }
+
+    .xai-method-ribbon {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 0.72rem 0.8rem;
+        margin: 0.75rem 0 0.9rem;
+    }
+
+    .xai-ribbon-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+        margin-right: 0.25rem;
+    }
+
+    .xai-ribbon-chip {
+        border-radius: 999px;
+        background: var(--surface-tint);
+        border: 1px solid rgba(101, 69, 246, 0.14);
+        color: #4731bf;
+        padding: 0.44rem 0.68rem;
+        font-weight: 800;
+        font-size: 0.84rem;
+    }
+
+    .xai-ribbon-chip.primary {
+        color: #ffffff;
+        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        border-color: var(--accent);
+    }
+
+    .xai-empty-state {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .xai-preview-card {
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    @media (max-width: 1119px) {
+        .xai-side-rail {
+            display: none;
+        }
+    }
+
     @media (max-width: 900px) {
-        .xai-hero-grid {
+        .xai-analysis-grid,
+        .xai-prediction-grid {
             grid-template-columns: 1fr;
+        }
+
+        .xai-section-header {
+            display: block;
+        }
+
+        .xai-page-title {
+            font-size: 2rem;
         }
     }
     </style>
@@ -797,7 +1403,10 @@ def build_visual_bundle(
         sigma=region_sigma,
         top_k=SUMMARY_TOP_K,
     )
-    heatmap_rgb = apply_colormap_to_cam(cam)
+    heatmap_rgb = apply_colormap_to_cam(
+        cam,
+        colormap=METHOD_HEATMAP_COLORMAPS.get(method_name, cv2.COLORMAP_JET),
+    )
     overlay_rgb = overlay_cam_on_image(np.asarray(image), heatmap_rgb, alpha=overlay_alpha)
     simplified_rgb = build_simplified_focus_image(image, region_analysis)
     summary_lines = generate_summary_text(
@@ -918,6 +1527,21 @@ def render_kpi_card(label: str, value: str, note: str = "") -> None:
     )
 
 
+def render_section_header(eyebrow: str, title: str, subtitle: str) -> None:
+    st.markdown(
+        f"""
+        <div class="xai-section-header">
+            <div>
+                <div class="xai-section-eyebrow">{eyebrow}</div>
+                <div class="xai-section-title">{title}</div>
+                <div class="xai-section-subtitle">{subtitle}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_dataframe_compat(
     data: Any,
     *,
@@ -965,33 +1589,183 @@ def metric_to_display(value: float | None, digits: int = 3) -> str:
     return f"{float(value):.{digits}f}"
 
 
-def render_hero() -> None:
+def get_active_section() -> str:
+    try:
+        raw_value = st.query_params.get(SECTION_QUERY_PARAM, "overview")
+    except Exception:
+        raw_value = "overview"
+
+    if isinstance(raw_value, list):
+        raw_value = raw_value[0] if raw_value else "overview"
+
+    section = str(raw_value).strip().lower()
+    return section if section in VALID_SECTIONS else "overview"
+
+
+def render_hero(active_section: str) -> str:
+    section_options = [section_id for section_id, _, _ in SECTION_NAV_ITEMS]
+    section_labels = {
+        section_id: f"{number}  {label}"
+        for section_id, number, label in SECTION_NAV_ITEMS
+    }
+    if st.session_state.get("active_section_nav") not in VALID_SECTIONS:
+        st.session_state["active_section_nav"] = active_section
+
+    with st.sidebar:
+        st.markdown(
+            """
+            <div class="xai-brand">
+                <div class="xai-brand-mark">X</div>
+                <div>
+                    <div class="xai-brand-title">XAI Thesis App</div>
+                    <div class="xai-brand-subtitle">visual + metrics + semantics</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        selected_section = st.radio(
+            "Navigation",
+            options=section_options,
+            format_func=lambda section_id: section_labels.get(section_id, section_id),
+            key="active_section_nav",
+            label_visibility="collapsed",
+        )
+        st.markdown(
+            """
+            <div class="xai-rail-footer">
+                XAI Research Lab<br>
+                ResNet50 ImageNet workflow<br>
+                v1.0.0
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if selected_section != active_section:
+        try:
+            st.query_params[SECTION_QUERY_PARAM] = selected_section
+        except Exception:
+            pass
+    return selected_section
+
+
+def render_page_heading() -> None:
     st.markdown(
         """
-        <div class="xai-hero">
-            <div class="xai-hero-grid">
+        <div class="xai-page-heading">
+            <div class="xai-page-kicker">XAI Analysis Workbench</div>
+            <div class="xai-page-title">Single Image Analysis</div>
+            <div class="xai-page-subtitle">
+                Upload an image to generate explanations, evaluate model predictions, inspect semantic concepts,
+                test evidence removal and export a complete thesis-ready report.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_method_ribbon(
+    *,
+    primary_method: str,
+    comparison_methods: list[str],
+    score_type: str,
+    visual_style: str,
+) -> None:
+    chips = [
+        f'<span class="xai-ribbon-chip primary">{escape(primary_method)}</span>',
+        f'<span class="xai-ribbon-chip">Score: {escape(score_type)}</span>',
+        f'<span class="xai-ribbon-chip">View: {escape(visual_style)}</span>',
+        f'<span class="xai-ribbon-chip">Compared: {escape(", ".join(comparison_methods))}</span>',
+    ]
+    st.markdown(
+        f"""
+        <div class="xai-method-ribbon">
+            <span class="xai-ribbon-label">Selected Explanation Method</span>
+            {"".join(chips)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_prediction_summary_card(analysis: dict[str, Any], topk_rows: list[dict[str, Any]]) -> None:
+    confidence_pct = float(analysis["confidence"]) * 100.0
+    progress_width = min(max(confidence_pct, 0.0), 100.0)
+    rows_html = ""
+    for row in topk_rows[:3]:
+        probability = float(row["Probability (%)"])
+        bar_width = min(max(probability, 0.0), 100.0)
+        rows_html += (
+            '<div class="xai-pred-row">'
+            f'<div class="xai-pred-rank">{int(row["Rank"])}</div>'
+            f'<div class="xai-pred-name">{escape(str(row["Class Name"]))}</div>'
+            f'<div class="xai-pred-bar"><span style="width: {bar_width:.2f}%"></span></div>'
+            f'<div class="xai-pred-value">{probability:.1f}%</div>'
+            "</div>"
+        )
+
+    st.markdown(
+        f"""
+        <div class="xai-dashboard-card">
+            <div class="xai-card-title-row">
+                <div class="xai-card-title">Prediction Summary</div>
+                <div class="xai-ready-pill">Prediction Ready</div>
+            </div>
+            <div class="xai-prediction-grid">
                 <div>
-                    <div class="xai-hero-kicker">Single Image Analysis</div>
-                    <div class="xai-hero-title">Εξέτασε μία πρόβλεψη με εξήγηση, μετρικές, σημασιολογική ανάλυση, αντιπαραδείγματα και κοινή εστίαση.</div>
-                    <p class="xai-hero-copy">
-                        Ανέβασε μία εικόνα, επίλεξε τη βασική μέθοδο εξήγησης και εξέτασε το οπτικό αποτέλεσμα μαζί με
-                        τις superpixel-based μετρικές ποιότητας. Η κύρια περιοχή μένει εστιασμένη στο αποτέλεσμα,
-                        ενώ το panel ρυθμίσεων κρατά τα προχωρημένα controls τακτοποιημένα και εύκολα προσβάσιμα.
-                    </p>
+                    <div class="xai-prediction-label">Predicted Class</div>
+                    <div class="xai-prediction-class">{escape(str(analysis["predicted_class"]))}</div>
                 </div>
-                <div class="xai-hero-side">
-                    <div class="xai-hero-pill">
-                        <strong>Primary Method</strong>
-                        <span>Επίλεξε τη μέθοδο που θέλεις να μελετήσεις σε βάθος για την τρέχουσα εικόνα.</span>
+                <div>
+                    <div class="xai-prediction-label">Confidence</div>
+                    <div class="xai-confidence-number">{confidence_pct:.1f}%</div>
+                    <div class="xai-progress-track">
+                        <div class="xai-progress-fill" style="width: {progress_width:.2f}%"></div>
                     </div>
-                    <div class="xai-hero-pill">
-                        <strong>Μετρικές</strong>
-                        <span>Άνοιξε τη ποσοτική αποτίμηση χωρίς να γεμίζει η βασική οθόνη.</span>
+                    <div class="xai-progress-scale"><span>0%</span><span>50%</span><span>100%</span></div>
+                </div>
+            </div>
+            <div class="xai-top-predictions">
+                <div class="xai-prediction-label">Top Predictions</div>
+                {rows_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_pending_summary_card(upload_name: str | None, primary_method: str) -> None:
+    file_label = upload_name if upload_name else "No image selected"
+    status_label = "Image Ready" if upload_name else "Waiting for Upload"
+    st.markdown(
+        f"""
+        <div class="xai-dashboard-card">
+            <div class="xai-card-title-row">
+                <div class="xai-card-title">Prediction Summary</div>
+                <div class="xai-ready-pill">{escape(status_label)}</div>
+            </div>
+            <div class="xai-prediction-grid">
+                <div>
+                    <div class="xai-prediction-label">Current Image</div>
+                    <div class="xai-prediction-class">{escape(file_label)}</div>
+                </div>
+                <div>
+                    <div class="xai-prediction-label">Primary Explainer</div>
+                    <div class="xai-confidence-number">{escape(primary_method)}</div>
+                    <div class="xai-progress-track">
+                        <div class="xai-progress-fill" style="width: 0%"></div>
                     </div>
-                    <div class="xai-hero-pill">
-                        <strong>Shared Focus</strong>
-                        <span>Δες ποιες περιοχές της εικόνας παραμένουν σημαντικές σε πολλές μεθόδους, με πιο προχωρημένες λεπτομέρειες μόνο όταν χρειάζονται.</span>
-                    </div>
+                    <div class="xai-progress-scale"><span>Upload</span><span>Run Analysis</span><span>Ready</span></div>
+                </div>
+            </div>
+            <div class="xai-top-predictions">
+                <div class="xai-prediction-label">Next Step</div>
+                <div style="color: var(--ink-soft); line-height: 1.55; font-weight: 650;">
+                    Πάτησε Run Analysis για να εμφανιστούν prediction, heatmaps, semantic summary,
+                    metrics, counterfactual και shared focus.
                 </div>
             </div>
         </div>
@@ -1073,11 +1847,24 @@ if "setup_panel_expanded" not in st.session_state:
     st.session_state["setup_panel_expanded"] = True
 
 
-render_hero()
+active_section = get_active_section()
+active_section = render_hero(active_section)
+heading_col, reset_col = st.columns([0.86, 0.14], gap="large")
+with heading_col:
+    render_page_heading()
+with reset_col:
+    st.write("")
+    st.write("")
+    if st.button("Reset", use_container_width=True):
+        st.session_state.clear()
+        if hasattr(st, "rerun"):
+            st.rerun()
+        else:
+            st.experimental_rerun()
+
 st.caption(
-    "Πλαίσιο μοντέλου: αυτό το dashboard χρησιμοποιεί το επίσημο ImageNet-pretrained ResNet50. "
-    "Αν αναλύσεις εικόνες Oxford-IIIT Pet εδώ, οι εξηγήσεις εξακολουθούν να αναφέρονται "
-    "στη συμπεριφορά πρόβλεψης του ImageNet μοντέλου πάνω σε αυτά τα inputs."
+    "Model context: το dashboard χρησιμοποιεί ImageNet-pretrained ResNet50. "
+    "Οι ελληνικές περιγραφές εξηγούν τη συμπεριφορά του μοντέλου για το συγκεκριμένο input."
 )
 
 if not bool(st.session_state.get("setup_panel_expanded", True)):
@@ -1119,25 +1906,32 @@ sensitivity_blur_radius = METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT
 compute_robustness = METRICS_ROBUSTNESS_ENABLED_DEFAULT
 robustness_noise_sigma = METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT
 
-with st.expander("Analysis Settings", expanded=bool(st.session_state.get("setup_panel_expanded", True))):
+with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_panel_expanded", True))):
     st.markdown(
-        '<div class="xai-section-note">Ανέβασε μία εικόνα και ρύθμισε εδώ τα controls. Μόλις τρέξει η ανάλυση, αυτό το panel κλείνει αυτόματα.</div>',
+        '<div class="xai-section-note">Upload image, choose explainers and adjust view options. Μετά το Run Analysis, το setup κλείνει αυτόματα για να μείνει καθαρό το dashboard.</div>',
         unsafe_allow_html=True,
     )
 
-    primary_controls_col, view_controls_col = st.columns([1.06, 0.94], gap="large")
-    with primary_controls_col:
+    setup_upload_col, setup_method_col = st.columns([0.46, 0.54], gap="large")
+    with setup_upload_col:
+        st.markdown("#### Upload Image")
         uploaded_file = st.file_uploader(
-            "1. Upload Image",
+            "Upload Image",
             type=["jpg", "jpeg", "png", "bmp", "webp"],
+            label_visibility="collapsed",
         )
-        explain_method = st.selectbox(
-            "2. Primary Explainer",
+        st.caption("PNG, JPG, JPEG, BMP ή WEBP. Η ανάλυση ευθυγραμμίζεται στο model-space input.")
+
+    with setup_method_col:
+        st.markdown("#### Method Selection")
+        explain_method = st.radio(
+            "Primary Explainer",
             options=AVAILABLE_METHODS,
             index=0,
+            horizontal=True,
         )
         comparison_selection = st.multiselect(
-            "3. Comparison Methods",
+            "Comparison Methods",
             options=AVAILABLE_METHODS,
             default=[explain_method],
             max_selections=COMPARISON_LIMIT,
@@ -1147,24 +1941,31 @@ with st.expander("Analysis Settings", expanded=bool(st.session_state.get("setup_
             "Score Type",
             options=["logit", "prob"],
             index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
+            horizontal=True,
             help="Χρησιμοποίησε score logit της κλάσης ή πιθανότητα softmax για την εξήγηση.",
         )
 
-    with view_controls_col:
-        st.markdown("#### View Options")
+    st.markdown("#### View Options")
+    view_style_col, view_layout_col, view_size_col, view_alpha_col = st.columns(4, gap="medium")
+    with view_style_col:
         visual_style = st.radio(
             "Explanation Style",
             options=["Heatmap Overlay", "Simplified Focus"],
+            horizontal=True,
         )
+    with view_layout_col:
         view_mode = st.radio(
             "Overview Layout",
-            options=["Tabs", "Side by Side"],
+            options=["Side by Side", "Tabs"],
+            horizontal=True,
         )
+    with view_size_col:
         image_size_label = st.select_slider(
             "Image Size",
             options=["Small", "Medium", "Large"],
             value="Medium",
         )
+    with view_alpha_col:
         overlay_alpha = st.slider(
             "Overlay Opacity",
             min_value=0.1,
@@ -1173,11 +1974,13 @@ with st.expander("Analysis Settings", expanded=bool(st.session_state.get("setup_
             step=0.05,
         )
 
-    with st.expander("Advanced Settings", expanded=False):
+    with st.container(border=True):
+        st.markdown("#### Advanced Settings")
         advanced_method_col, advanced_metrics_col = st.columns(2, gap="large")
 
         with advanced_method_col:
-            with st.expander("Method Settings", expanded=False):
+            with st.container(border=True):
+                st.markdown("##### Method Settings")
                 if explain_method == "Integrated Gradients":
                     ig_steps = st.slider("IG Steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
                     ig_internal_batch_size = st.slider(
@@ -1270,7 +2073,8 @@ with st.expander("Analysis Settings", expanded=bool(st.session_state.get("setup_
                         st.warning("Μεγάλος αριθμός δειγμάτων LIME μπορεί να είναι αργός σε CPU.")
 
         with advanced_metrics_col:
-            with st.expander("Metric Settings", expanded=False):
+            with st.container(border=True):
+                st.markdown("##### Metric Settings")
                 compute_metrics = st.checkbox("Compute Metrics for Primary Method", value=METRICS_ENABLED_DEFAULT)
                 metrics_seed = st.number_input(
                     "Metrics Random Seed",
@@ -1366,9 +2170,34 @@ comparison_methods = comparison_methods[:COMPARISON_LIMIT]
 image_width_map = {"Small": 300, "Medium": 420, "Large": 540}
 image_width = image_width_map[image_size_label]
 
+render_method_ribbon(
+    primary_method=explain_method,
+    comparison_methods=comparison_methods,
+    score_type=score_type,
+    visual_style=visual_style,
+)
+
 if uploaded_file is None:
+    empty_left, empty_right = st.columns([0.48, 0.52], gap="large")
+    with empty_left:
+        st.markdown(
+            """
+            <div class="xai-empty-state">
+                <div class="xai-card-title-row">
+                    <div class="xai-card-title">Upload Workspace</div>
+                    <div class="xai-ready-pill">Setup Open</div>
+                </div>
+                <div style="color: var(--ink-soft); line-height: 1.6; font-weight: 650;">
+                    Άνοιξε το Analysis Setup και ανέβασε μία εικόνα. Μετά το run θα εμφανιστούν εδώ
+                    η πρόβλεψη, οι οπτικές εξηγήσεις, το semantic summary, οι μετρικές και το export.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with empty_right:
+        render_pending_summary_card(None, explain_method)
     render_step_cards()
-    st.info("Χρησιμοποίησε το panel ρυθμίσεων πιο πάνω για να ανεβάσεις εικόνα και να ξεκινήσεις το demo.")
     st.stop()
 
 try:
@@ -1449,21 +2278,14 @@ else:
             method_analyses[method_name] = analysis
 
 if explain_method not in method_analyses:
-    preview_col1, preview_col2 = st.columns([0.95, 1.05], gap="large")
+    preview_col1, preview_col2 = st.columns([0.48, 0.52], gap="large")
     with preview_col1:
-        st.subheader("Uploaded Image")
-        st.image(pil_image, width=image_width)
+        with st.container(border=True):
+            st.markdown("#### Uploaded Image")
+            st.image(pil_image, width=image_width)
+            st.caption("Η εικόνα είναι φορτωμένη και περιμένει Run Analysis.")
     with preview_col2:
-        st.markdown(
-            f"""
-            <div class="xai-callout">
-                Το αρχείο <strong>{uploaded_file.name}</strong> είναι έτοιμο για ανάλυση. Επίλεξε μέθοδο και ρυθμίσεις
-                από το panel και πάτησε <strong>Run Analysis</strong> για να εμφανιστούν η επισκόπηση, οι μετρικές,
-                το αντιπαράδειγμα και η κοινή εστίαση.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        render_pending_summary_card(uploaded_file.name, explain_method)
         render_step_cards()
     st.stop()
 
@@ -1486,44 +2308,57 @@ selected_bundle = build_visual_bundle(
 )
 selected_semantic: dict[str, Any] | None = None
 selected_semantic_error: str | None = None
-try:
-    selected_semantic = ensure_semantic_analysis(
-        cache=semantic_cache,
-        image_bytes=image_bytes,
-        image=model_view_image,
-        method_name=explain_method,
-        analysis=selected_analysis,
-    )
-except Exception as exc:
-    selected_semantic_error = str(exc)
-
 selected_counterfactual: dict[str, Any] | None = None
 selected_counterfactual_error: str | None = None
-try:
-    selected_counterfactual = ensure_counterfactual_analysis(
-        cache=counterfactual_cache,
-        image_bytes=image_bytes,
-        image=source_pil_image,
-        method_name=explain_method,
-        analysis=selected_analysis,
-    )
-except Exception as exc:
-    selected_counterfactual_error = str(exc)
 
-comparison_bundles: OrderedDict[str, dict[str, Any]] = OrderedDict()
-for method_name in comparison_methods:
-    analysis = method_analyses.get(method_name)
-    if analysis is None:
-        continue
-    comparison_bundles[method_name] = build_visual_bundle(
-        image=model_view_image,
-        method_name=method_name,
-        analysis=analysis,
-        overlay_alpha=overlay_alpha,
-        region_segments=metrics_slic_segments,
-        region_compactness=metrics_slic_compactness,
-        region_sigma=metrics_slic_sigma,
-    )
+
+def load_selected_semantic() -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        return (
+            ensure_semantic_analysis(
+                cache=semantic_cache,
+                image_bytes=image_bytes,
+                image=model_view_image,
+                method_name=explain_method,
+                analysis=selected_analysis,
+            ),
+            None,
+        )
+    except Exception as exc:
+        return None, str(exc)
+
+
+def load_selected_counterfactual() -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        return (
+            ensure_counterfactual_analysis(
+                cache=counterfactual_cache,
+                image_bytes=image_bytes,
+                image=source_pil_image,
+                method_name=explain_method,
+                analysis=selected_analysis,
+            ),
+            None,
+        )
+    except Exception as exc:
+        return None, str(exc)
+
+def load_comparison_bundles() -> OrderedDict[str, dict[str, Any]]:
+    bundles: OrderedDict[str, dict[str, Any]] = OrderedDict()
+    for method_name in comparison_methods:
+        analysis = method_analyses.get(method_name)
+        if analysis is None:
+            continue
+        bundles[method_name] = build_visual_bundle(
+            image=model_view_image,
+            method_name=method_name,
+            analysis=analysis,
+            overlay_alpha=overlay_alpha,
+            region_segments=metrics_slic_segments,
+            region_compactness=metrics_slic_compactness,
+            region_sigma=metrics_slic_sigma,
+        )
+    return bundles
 
 selected_metrics_raw = selected_analysis.get("metrics")
 selected_metrics = selected_metrics_raw if isinstance(selected_metrics_raw, dict) else None
@@ -1540,8 +2375,11 @@ display_explanation_image = (
     selected_bundle["overlay_rgb"] if visual_style == "Heatmap Overlay" else selected_bundle["simplified_rgb"]
 )
 
-shared_focus_export: dict[str, Any] | None = None
-if len(comparison_bundles) >= 2:
+def build_shared_focus_export_payload() -> dict[str, Any] | None:
+    comparison_bundles = load_comparison_bundles()
+    if len(comparison_bundles) < 2:
+        return None
+
     consensus_analysis = build_consensus_analysis(
         image=model_view_image,
         method_cams={method_name: np.asarray(bundle["cam"], dtype=np.float32) for method_name, bundle in comparison_bundles.items()},
@@ -1607,12 +2445,20 @@ if len(comparison_bundles) >= 2:
         method_report_df["Shared Cosine"] = method_report_df["Shared Cosine"].map(lambda value: round(float(value), 3))
         method_report_df["Shared IoU"] = method_report_df["Shared IoU"].map(lambda value: round(float(value), 3))
 
-    shared_focus_export = {
+    return {
         "available": True,
         "consensus_analysis": consensus_analysis,
         "shared_region": shared_region,
         "disagreement_region": disagreement_region,
         "required_votes": required_votes,
+        "shared_evidence_map": shared_evidence_map,
+        "disagreement_map": disagreement_map,
+        "shared_evidence_heatmap_rgb": shared_evidence_heatmap_rgb,
+        "disagreement_heatmap_rgb": disagreement_heatmap_rgb,
+        "shared_evidence_overlay_rgb": shared_evidence_overlay_rgb,
+        "disagreement_overlay_rgb": disagreement_overlay_rgb,
+        "shared_evidence_focus_rgb": shared_evidence_focus_rgb,
+        "disagreement_focus_rgb": disagreement_focus_rgb,
         "shared_evidence_display_rgb": shared_evidence_display_rgb,
         "disagreement_display_rgb": disagreement_display_rgb,
         "pairwise_report_df": pairwise_report_df,
@@ -1654,113 +2500,149 @@ if selected_metrics is not None:
         )
         metric_curve_df.index.name = "Fraction"
 
-counterfactual_progression_df: pd.DataFrame | None = None
-if selected_counterfactual is not None:
-    progression_rows = selected_counterfactual.get("progression_rows", [])
-    if progression_rows:
-        counterfactual_progression_df = pd.DataFrame(progression_rows)
-
-report_payload = {
-    "title": "XAI Analysis Report",
-    "meta": {
-        "image_name": uploaded_file.name,
-        "primary_method": explain_method,
-        "method_set": ", ".join(comparison_methods),
-        "predicted_class": str(selected_analysis["predicted_class"]),
-        "confidence_pct": f"{float(selected_analysis['confidence']) * 100:.1f}%",
-        "runtime_s": f"{float(selected_analysis['total_runtime_s']):.2f}s",
-    },
-    "overview": {
-        "original_image": np.asarray(model_view_image, dtype=np.uint8),
-        "explained_image": np.asarray(display_explanation_image, dtype=np.uint8),
-        "heatmap_image": np.asarray(selected_bundle["heatmap_rgb"], dtype=np.uint8),
-        "top5_df": top5_df.copy(),
-    },
-}
-if selected_semantic is not None and selected_semantic_error is None:
-    semantic_table = selected_semantic.get("score_table")
-    if isinstance(semantic_table, pd.DataFrame) and not semantic_table.empty:
-        semantic_table = semantic_table.copy()
-        semantic_table["Σημασιολογικό Σκορ (%)"] = semantic_table["Σημασιολογικό Σκορ (%)"].map(
-            lambda value: round(float(value), 2)
-        )
-    report_payload["semantic"] = {
-        "summary": str(selected_semantic.get("summary_gr", "")),
-        "top_concepts_text": str(selected_semantic.get("top_concepts_text", "")),
-        "top_concepts": list(selected_semantic.get("top_concepts", [])),
-        "focus_image": np.asarray(selected_semantic["focus_rgb"], dtype=np.uint8),
-        "focus_caption": (
-            f"Top-{len(selected_semantic.get('top_superpixel_ids', []))} σημασιολογικά superpixels | "
-            f"περιοχή εστίασης {float(selected_semantic.get('focus_area_pct', 0.0)):.1f}%"
-        ),
-        "score_table": semantic_table if isinstance(semantic_table, pd.DataFrame) else pd.DataFrame(),
-    }
-if selected_metrics is not None:
-    report_payload["metrics"] = {
-        "deletion_auc": metric_to_display(selected_metrics.get("deletion_auc")),
-        "insertion_auc": metric_to_display(selected_metrics.get("insertion_auc")),
-        "sensitivity": metric_to_display(selected_metrics.get("sensitivity")),
-        "hoyer_sparsity": metric_to_display(selected_metrics.get("hoyer_sparsity")),
-        "aopc_delta": metric_to_display(selected_metrics.get("aopc_delta")),
-        "robustness": metric_to_display(selected_metrics.get("spearman_rho")) if selected_metrics.get("spearman_rho") is not None else "-",
-        "curve_df": metric_curve_df if isinstance(metric_curve_df, pd.DataFrame) else pd.DataFrame(),
-        "details_df": metric_details_df if isinstance(metric_details_df, pd.DataFrame) else pd.DataFrame(),
-    }
-if selected_counterfactual is not None and selected_counterfactual_error is None:
-    report_payload["counterfactual"] = {
-        "summary_lines": [str(line) for line in selected_counterfactual.get("summary_lines", [])],
-        "original_image": np.asarray(model_view_image, dtype=np.uint8),
-        "removed_image": np.asarray(selected_counterfactual["removed_evidence_rgb"], dtype=np.uint8),
-        "counterfactual_image": np.asarray(selected_counterfactual["counterfactual_rgb"], dtype=np.uint8),
-        "progression_df": counterfactual_progression_df if isinstance(counterfactual_progression_df, pd.DataFrame) else pd.DataFrame(),
-    }
-if shared_focus_export is not None:
-    report_payload["shared_focus"] = {
-        "available": True,
-        "summary_lines": [str(line) for line in shared_focus_export["consensus_analysis"]["summary_lines"]],
-        "original_image": np.asarray(model_view_image, dtype=np.uint8),
-        "shared_focus_image": np.asarray(shared_focus_export["shared_evidence_display_rgb"], dtype=np.uint8),
-        "disagreement_image": np.asarray(shared_focus_export["disagreement_display_rgb"], dtype=np.uint8),
-        "shared_caption": str(shared_focus_export["shared_caption"]),
-        "disagreement_caption": str(shared_focus_export["disagreement_caption"]),
-        "pairwise_df": shared_focus_export["pairwise_report_df"],
-        "method_df": shared_focus_export["method_report_df"],
-    }
-
-pdf_report_bytes = build_pdf_report(report_payload)
 pdf_report_filename = f"{Path(uploaded_file.name).stem}_xai_report.pdf"
-
-st.markdown(
-    f"""
-    <div class="xai-callout">
-        <strong>Current image:</strong> {uploaded_file.name} &nbsp;|&nbsp;
-        <strong>Primary method:</strong> {explain_method} &nbsp;|&nbsp;
-        <strong>Method set:</strong> {", ".join(comparison_methods)}
-    </div>
-    """,
-    unsafe_allow_html=True,
+pdf_report_key_hasher = hashlib.sha256()
+pdf_report_key_hasher.update(image_bytes)
+pdf_report_key_hasher.update(np.asarray(selected_analysis["cam_uint8"], dtype=np.uint8).tobytes())
+pdf_report_key_hasher.update(
+    str(
+        (
+            "pdf_report_layout_v3",
+            explain_method,
+            tuple(comparison_methods),
+            score_type,
+            visual_style,
+            round(float(overlay_alpha), 3),
+            selected_analysis["predicted_class"],
+            round(float(selected_analysis["confidence"]), 6),
+            selected_metrics,
+        )
+    ).encode("utf-8")
 )
+pdf_report_key = pdf_report_key_hasher.hexdigest()
 
-export_col_left, export_col_right = st.columns([0.74, 0.26], gap="medium")
-with export_col_left:
-    st.caption("Κατέβασε την τρέχουσα ανάλυση σε πολυσέλιδο PDF report με εικόνες, πίνακες και βασικά συμπεράσματα.")
-with export_col_right:
-    st.download_button(
-        "Export PDF Report",
-        data=pdf_report_bytes,
-        file_name=pdf_report_filename,
-        mime="application/pdf",
-        use_container_width=True,
-    )
 
-overview_tab, metrics_tab, counterfactual_tab, shared_evidence_tab = st.tabs(
-    ["Overview", "Metrics", "Counterfactual", "Shared Focus"]
-)
+def build_current_report_payload() -> dict[str, Any]:
+    report_payload = {
+        "title": "XAI Analysis Report",
+        "meta": {
+            "image_name": uploaded_file.name,
+            "primary_method": explain_method,
+            "method_set": ", ".join(comparison_methods),
+            "predicted_class": str(selected_analysis["predicted_class"]),
+            "confidence_pct": f"{float(selected_analysis['confidence']) * 100:.1f}%",
+            "runtime_s": f"{float(selected_analysis['total_runtime_s']):.2f}s",
+        },
+        "overview": {
+            "original_image": np.asarray(model_view_image, dtype=np.uint8),
+            "explained_image": np.asarray(display_explanation_image, dtype=np.uint8),
+            "heatmap_image": np.asarray(selected_bundle["heatmap_rgb"], dtype=np.uint8),
+            "top5_df": top5_df.copy(),
+        },
+    }
 
-with overview_tab:
-    st.markdown("### Run Overview")
-    st.markdown(
-        "Τα βασικά αποτελέσματα της τρέχουσας εκτέλεσης: η επιλεγμένη πρόβλεψη, η κύρια οπτική εξήγηση και η σημασιολογική της ανάγνωση."
+    semantic_for_report, semantic_error = load_selected_semantic()
+    if semantic_for_report is not None and semantic_error is None:
+        semantic_table = semantic_for_report.get("score_table")
+        if isinstance(semantic_table, pd.DataFrame) and not semantic_table.empty:
+            semantic_table = semantic_table.copy()
+            semantic_table["Σημασιολογικό Σκορ (%)"] = semantic_table["Σημασιολογικό Σκορ (%)"].map(
+                lambda value: round(float(value), 2)
+            )
+        report_payload["semantic"] = {
+            "summary": str(semantic_for_report.get("summary_gr", "")),
+            "top_concepts_text": str(semantic_for_report.get("top_concepts_text", "")),
+            "top_concepts": list(semantic_for_report.get("top_concepts", [])),
+            "focus_image": np.asarray(semantic_for_report["focus_rgb"], dtype=np.uint8),
+            "focus_caption": (
+                f"Top-{len(semantic_for_report.get('top_superpixel_ids', []))} σημασιολογικά superpixels | "
+                f"περιοχή εστίασης {float(semantic_for_report.get('focus_area_pct', 0.0)):.1f}%"
+            ),
+            "score_table": semantic_table if isinstance(semantic_table, pd.DataFrame) else pd.DataFrame(),
+        }
+
+    if selected_metrics is not None:
+        report_payload["metrics"] = {
+            "deletion_auc": metric_to_display(selected_metrics.get("deletion_auc")),
+            "insertion_auc": metric_to_display(selected_metrics.get("insertion_auc")),
+            "sensitivity": metric_to_display(selected_metrics.get("sensitivity")),
+            "hoyer_sparsity": metric_to_display(selected_metrics.get("hoyer_sparsity")),
+            "aopc_delta": metric_to_display(selected_metrics.get("aopc_delta")),
+            "robustness": metric_to_display(selected_metrics.get("spearman_rho")) if selected_metrics.get("spearman_rho") is not None else "-",
+            "curve_df": metric_curve_df if isinstance(metric_curve_df, pd.DataFrame) else pd.DataFrame(),
+            "details_df": metric_details_df if isinstance(metric_details_df, pd.DataFrame) else pd.DataFrame(),
+        }
+
+    counterfactual_for_report, counterfactual_error = load_selected_counterfactual()
+    if counterfactual_for_report is not None and counterfactual_error is None:
+        counterfactual_progression_df = pd.DataFrame()
+        progression_rows = counterfactual_for_report.get("progression_rows", [])
+        if progression_rows:
+            counterfactual_progression_df = pd.DataFrame(progression_rows)
+        report_payload["counterfactual"] = {
+            "summary_lines": [str(line) for line in counterfactual_for_report.get("summary_lines", [])],
+            "original_image": np.asarray(model_view_image, dtype=np.uint8),
+            "removed_image": np.asarray(counterfactual_for_report["removed_evidence_rgb"], dtype=np.uint8),
+            "counterfactual_image": np.asarray(counterfactual_for_report["counterfactual_rgb"], dtype=np.uint8),
+            "progression_df": counterfactual_progression_df,
+        }
+
+    shared_focus_for_report = build_shared_focus_export_payload()
+    if shared_focus_for_report is not None:
+        report_payload["shared_focus"] = {
+            "available": True,
+            "summary_lines": [str(line) for line in shared_focus_for_report["consensus_analysis"]["summary_lines"]],
+            "original_image": np.asarray(model_view_image, dtype=np.uint8),
+            "shared_focus_image": np.asarray(shared_focus_for_report["shared_evidence_display_rgb"], dtype=np.uint8),
+            "disagreement_image": np.asarray(shared_focus_for_report["disagreement_display_rgb"], dtype=np.uint8),
+            "shared_caption": str(shared_focus_for_report["shared_caption"]),
+            "disagreement_caption": str(shared_focus_for_report["disagreement_caption"]),
+            "pairwise_df": shared_focus_for_report["pairwise_report_df"],
+            "method_df": shared_focus_for_report["method_report_df"],
+        }
+
+    return report_payload
+
+analysis_top_left, analysis_top_right = st.columns([0.46, 0.54], gap="large")
+with analysis_top_left:
+    with st.container(border=True):
+        st.markdown("#### Selected Visual Explanation")
+        st.image(display_explanation_image, width=image_width)
+        st.caption(
+            f"{uploaded_file.name} | {explain_method} | "
+            f"{'overlay heatmap' if visual_style == 'Heatmap Overlay' else 'simplified focus'}"
+        )
+with analysis_top_right:
+    render_prediction_summary_card(selected_analysis, selected_analysis["topk_rows"])
+    export_col_left, export_col_right = st.columns([0.56, 0.44], gap="medium")
+    with export_col_left:
+        st.caption("Το PDF χτίζεται μόνο όταν το ζητήσεις, για να μένουν γρήγορες οι αλλαγές section.")
+    with export_col_right:
+        if st.button("Prepare PDF Report", use_container_width=True):
+            with st.spinner("Ετοιμάζεται το πλήρες PDF report..."):
+                st.session_state["prepared_pdf_report_key"] = pdf_report_key
+                st.session_state["prepared_pdf_report_bytes"] = build_pdf_report(build_current_report_payload())
+
+        prepared_pdf_bytes = st.session_state.get("prepared_pdf_report_bytes")
+        if (
+            st.session_state.get("prepared_pdf_report_key") == pdf_report_key
+            and isinstance(prepared_pdf_bytes, bytes)
+            and prepared_pdf_bytes
+        ):
+            st.download_button(
+                "Download PDF Report",
+                data=prepared_pdf_bytes,
+                file_name=pdf_report_filename,
+                mime="application/pdf",
+                use_container_width=True,
+            )
+
+if active_section == "overview":
+    selected_semantic, selected_semantic_error = load_selected_semantic()
+    render_section_header(
+        "Overview",
+        "Run Overview",
+        "Τα βασικά αποτελέσματα της τρέχουσας εκτέλεσης: πρόβλεψη, κύρια οπτική εξήγηση και semantic reading.",
     )
     snapshot_cols = st.columns(4, gap="medium")
     with snapshot_cols[0]:
@@ -1788,28 +2670,39 @@ with overview_tab:
             "Συνολικός χρόνος για πρόβλεψη, εξήγηση και τυχόν ενεργές μετρικές.",
         )
 
-    visual_col, context_col = st.columns([1.14, 0.86], gap="large")
-    with visual_col:
-        st.subheader("Visual Evidence")
-        st.caption("Εναλλαγή ανάμεσα στην ερμηνευμένη προβολή και τον ακατέργαστο χάρτη θερμότητας, κρατώντας δίπλα την αρχική εικόνα.")
-        base_col, explanation_col = st.columns([0.92, 1.08], gap="large")
-        with base_col:
-            st.image(model_view_image, width=image_width, caption="Model input view")
-        with explanation_col:
-            if view_mode == "Tabs":
+    st.subheader("Visual Evidence")
+    st.caption("Model input, explained projection και raw heatmap πάνω στο ίδιο aligned Resize + CenterCrop input.")
+    if view_mode == "Tabs":
+        visual_tabs_col, visual_original_col = st.columns([1.05, 0.95], gap="large")
+        with visual_original_col:
+            with st.container(border=True):
+                st.markdown("#### Original Image")
+                st.image(model_view_image, width=image_width, caption="Model input view")
+        with visual_tabs_col:
+            with st.container(border=True):
+                st.markdown("#### Explanation Views")
                 overlay_tab, heatmap_tab = st.tabs(["Explained View", "Heatmap"])
                 with overlay_tab:
                     st.image(display_explanation_image, width=image_width)
                 with heatmap_tab:
                     st.image(selected_bundle["heatmap_rgb"], width=image_width)
-            else:
-                side_a, side_b = st.columns(2, gap="large")
-                with side_a:
-                    st.image(display_explanation_image, width=image_width, caption="Επιλεγμένη προβολή εξήγησης")
-                with side_b:
-                    st.image(selected_bundle["heatmap_rgb"], width=image_width, caption="Ακατέργαστος χάρτης θερμότητας")
+    else:
+        visual_cards = st.columns(3, gap="large")
+        with visual_cards[0]:
+            with st.container(border=True):
+                st.markdown("#### Original Image")
+                st.image(model_view_image, width=image_width, caption="Model input view")
+        with visual_cards[1]:
+            with st.container(border=True):
+                st.markdown("#### Explained View")
+                st.image(display_explanation_image, width=image_width, caption="Επιλεγμένη προβολή εξήγησης")
+        with visual_cards[2]:
+            with st.container(border=True):
+                st.markdown("#### Heatmap")
+                st.image(selected_bundle["heatmap_rgb"], width=image_width, caption="Raw heatmap")
 
-    with context_col:
+    interpretation_col, predictions_col = st.columns([1.12, 0.88], gap="large")
+    with interpretation_col:
         st.subheader("Semantic Interpretation")
         if selected_semantic_error is not None:
             st.error(f"Η σημασιολογική ανάλυση δεν είναι διαθέσιμη σε αυτή την εκτέλεση: {selected_semantic_error}")
@@ -1818,6 +2711,7 @@ with overview_tab:
         else:
             render_panel("Semantic Summary", [str(selected_semantic["summary_gr"])])
             render_semantic_top_concepts(list(selected_semantic.get("top_concepts", [])))
+    with predictions_col:
         st.markdown("#### Top-5 Predictions")
         top5_display_df = top5_df.rename(
             columns={
@@ -1853,11 +2747,49 @@ with overview_tab:
             else:
                 st.info("Δεν προέκυψε πίνακας σημασιολογικών scores για το τρέχον αποτέλεσμα.")
 
-with metrics_tab:
-    st.markdown("### Metrics")
-    st.markdown(
-        '<div class="xai-section-note">Οι μετρικές ποιότητας ανά εικόνα υπολογίζονται μόνο για τη βασική μέθοδο ώστε το demo να παραμένει γρήγορο.</div>',
-        unsafe_allow_html=True,
+if active_section == "semantic":
+    selected_semantic, selected_semantic_error = load_selected_semantic()
+    render_section_header(
+        "Semantic",
+        "Semantic Evidence",
+        "Μετατρέπει τις σημαντικές περιοχές της εξήγησης σε ανθρώπινα αναγνώσιμες έννοιες, χρησιμοποιώντας ξεχωριστό SLIC/CLIP semantic layer.",
+    )
+    if selected_semantic_error is not None:
+        st.error(f"Η σημασιολογική ανάλυση δεν είναι διαθέσιμη σε αυτή την εκτέλεση: {selected_semantic_error}")
+    elif selected_semantic is None:
+        st.info("Τρέξε την ανάλυση για να εμφανιστεί η σημασιολογική ανάγνωση.")
+    else:
+        semantic_summary_col, semantic_focus_col = st.columns([1.0, 1.0], gap="large")
+        with semantic_summary_col:
+            render_panel("Semantic Summary", [str(selected_semantic["summary_gr"])])
+            render_semantic_top_concepts(list(selected_semantic.get("top_concepts", [])))
+        with semantic_focus_col:
+            st.markdown("#### Semantic Focus Region")
+            st.image(
+                np.asarray(selected_semantic["focus_rgb"], dtype=np.uint8),
+                width=image_width,
+                caption=(
+                    f"Top-{len(selected_semantic.get('top_superpixel_ids', []))} semantic superpixels | "
+                    f"focus area {float(selected_semantic.get('focus_area_pct', 0.0)):.1f}%"
+                ),
+            )
+
+        score_table = selected_semantic.get("score_table")
+        if isinstance(score_table, pd.DataFrame) and not score_table.empty:
+            semantic_table = score_table.copy()
+            semantic_table["Σημασιολογικό Σκορ (%)"] = semantic_table["Σημασιολογικό Σκορ (%)"].map(
+                lambda value: round(float(value), 2)
+            )
+            st.markdown("#### Semantic Concept Contribution Table")
+            render_dataframe_compat(semantic_table, hide_index=True, height=300)
+        else:
+            st.info("Δεν προέκυψε πίνακας σημασιολογικών scores για το τρέχον αποτέλεσμα.")
+
+if active_section == "metrics":
+    render_section_header(
+        "Metrics",
+        "Explanation Quality",
+        "Οι μετρικές ποιότητας ανά εικόνα υπολογίζονται για τη βασική μέθοδο και συνοψίζουν faithfulness, sensitivity, sparsity και robustness.",
     )
     if selected_metrics is None:
         st.info("Ενεργοποίησε τον υπολογισμό μετρικών για τη βασική μέθοδο και ξανατρέξε την ανάλυση για να εμφανιστεί αυτή η καρτέλα.")
@@ -1948,11 +2880,12 @@ with metrics_tab:
                 )
                 render_line_chart_compat(curve_df.set_index("Fraction"), height=300)
 
-with counterfactual_tab:
-    st.markdown("### Counterfactual")
-    st.markdown(
-        '<div class="xai-section-note">Αυτή η καρτέλα θολώνει προοδευτικά τα πιο επιδραστικά superpixels από τη βασική μέθοδο μέχρι το μοντέλο να αλλάξει πρόβλεψη ή να φτάσει το τρέχον όριο αφαίρεσης.</div>',
-        unsafe_allow_html=True,
+if active_section == "counterfactual":
+    selected_counterfactual, selected_counterfactual_error = load_selected_counterfactual()
+    render_section_header(
+        "Counterfactual",
+        "What-if Evidence Removal",
+        "Προοδευτική θόλωση των πιο επιδραστικών superpixels ώστε να φανεί πότε και πώς αλλάζει η πρόβλεψη.",
     )
     st.caption(
         f"Προεπιλεγμένες ρυθμίσεις αντιπαραδείγματος: {COUNTERFACTUAL_SLIC_SEGMENTS_DEFAULT} τμήματα SLIC, compactness "
@@ -2149,11 +3082,12 @@ with counterfactual_tab:
                 )
                 render_dataframe_compat(table_df, hide_index=True, height=300)
 
-with shared_evidence_tab:
-    st.markdown("### Shared Focus")
-    st.markdown(
-        '<div class="xai-section-note">Αυτή η καρτέλα κρατά μόνο τις περιοχές της εικόνας που παραμένουν σημαντικές σε πολλές μεθόδους πάνω στο ίδιο SLIC πλέγμα superpixels.</div>',
-        unsafe_allow_html=True,
+if active_section == "shared":
+    comparison_bundles = load_comparison_bundles()
+    render_section_header(
+        "Shared Focus",
+        "Agreement Across Explainers",
+        "Κρατά τις περιοχές που παραμένουν σημαντικές σε πολλές μεθόδους πάνω στο ίδιο SLIC πλέγμα superpixels.",
     )
     if len(comparison_bundles) < 2:
         st.info("Επίλεξε τουλάχιστον δύο μεθόδους στις `Comparison Methods` και πάτησε `Run Analysis` για να εμφανιστεί η κοινή εστίαση.")

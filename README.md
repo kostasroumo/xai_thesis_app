@@ -45,6 +45,67 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+Open the Streamlit thesis app at:
+
+```text
+http://localhost:8501
+```
+
+## Docker Run
+
+The recommended reproducible setup for the thesis presentation is the Dockerized Streamlit app:
+
+```bash
+docker compose up --build streamlit
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+The first run may take longer because Docker installs the Python dependencies and the model weights are cached on first use.
+
+## FastAPI Adapter
+
+This repository also includes a separate FastAPI layer in `api/`. It reuses the same `src/` model, preprocessing and explainer code, but exposes it as API endpoints for a future production-style frontend.
+
+Run the API with Docker:
+
+```bash
+docker compose up --build api
+```
+
+Open the interactive API docs:
+
+```text
+http://localhost:8000/docs
+```
+
+Available starter endpoints:
+
+- `GET /health`
+- `GET /runtime`
+- `POST /predict`
+- `POST /explain`
+
+For the thesis demo, use the Streamlit app. For portfolio/backend evolution, use the FastAPI adapter as the starting point.
+
+Run the API locally without Docker:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt -r api/requirements.txt
+uvicorn api.main:app --reload --port 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000/docs
+```
+
 ## Notes
 
 - The first run downloads official ResNet50 pretrained weights.

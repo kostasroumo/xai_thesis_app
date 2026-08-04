@@ -209,15 +209,46 @@ def _semantic_bar_items(semantic: Mapping[str, Any]) -> list[tuple[str, float]]:
     return []
 
 
-def _df_to_html_table(df: pd.DataFrame, max_rows: int = 12) -> str:
+def _format_table_value(value: Any, column_name: str) -> str:
+    if pd.isna(value):
+        return ""
+    if isinstance(value, (bool, np.bool_)):
+        return "Yes" if bool(value) else "No"
+    if isinstance(value, (int, np.integer)) and not isinstance(value, (bool, np.bool_)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        number = float(value)
+        if not np.isfinite(number):
+            return ""
+        lower_column = column_name.lower()
+        decimals = 2 if "%" in lower_column or "probability" in lower_column or "score" in lower_column else 3
+        formatted = f"{number:.{decimals}f}"
+        return formatted.rstrip("0").rstrip(".")
+    return str(value)
+
+
+def _df_to_html_table(
+    df: pd.DataFrame,
+    max_rows: int = 12,
+    columns: Sequence[str] | None = None,
+    column_labels: Mapping[str, str] | None = None,
+) -> str:
     if df.empty:
         return '<div class="table-empty">Not available in this run.</div>'
 
-    display_df = df.copy().head(max_rows).fillna("")
-    headers = "".join(f"<th>{_escape(col)}</th>" for col in display_df.columns)
+    display_df = _preferred_columns(df, columns) if columns is not None else df.copy()
+    if display_df.empty:
+        return '<div class="table-empty">Not available in this run.</div>'
+
+    display_df = display_df.head(max_rows).fillna("")
+    labels = column_labels or {}
+    headers = "".join(f"<th>{_escape(labels.get(str(col), str(col)))}</th>" for col in display_df.columns)
     body_rows: list[str] = []
     for _, row in display_df.iterrows():
-        cells = "".join(f"<td>{_escape(value)}</td>" for value in row.tolist())
+        cells = "".join(
+            f"<td>{_escape(_format_table_value(row[column], str(column)))}</td>"
+            for column in display_df.columns
+        )
         body_rows.append(f"<tr>{cells}</tr>")
     return f"<table><thead><tr>{headers}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
@@ -400,8 +431,29 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
         "Shared Focus": bool(shared_focus.get("available")),
     }
 
-    counterfactual_table_html = _df_to_html_table(progression_df, max_rows=9)
-    if not progression_df.empty and len(progression_df) > 9:
+    counterfactual_table_columns = [
+        "Step",
+        "Removed Superpixels",
+        "Removed Area (%)",
+        "Original Class Probability (%)",
+        "Current Winner",
+        "Current Winner Probability (%)",
+    ]
+    counterfactual_table_labels = {
+        "Step": "Step",
+        "Removed Superpixels": "SP",
+        "Removed Area (%)": "Area %",
+        "Original Class Probability (%)": "Orig %",
+        "Current Winner": "Winner",
+        "Current Winner Probability (%)": "Win %",
+    }
+    counterfactual_table_html = _df_to_html_table(
+        progression_df,
+        max_rows=6,
+        columns=counterfactual_table_columns,
+        column_labels=counterfactual_table_labels,
+    )
+    if not progression_df.empty and len(progression_df) > 6:
         counterfactual_table_html += '<div class="note mt-4">Table truncated for readability.</div>'
 
     replacements = {
@@ -429,7 +481,7 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
         "{{semantic_contribution_table}}": _df_to_html_table(semantic_df, max_rows=12),
         "{{metrics_cards}}": _metric_cards_html(metrics),
         "{{metrics_curve_image}}": metrics_curve_uri,
-        "{{metrics_details_table}}": _df_to_html_table(metrics_df, max_rows=14),
+        "{{metrics_details_table}}": _df_to_html_table(metrics_df, max_rows=8),
         "{{counterfactual_summary}}": _escape(counterfactual_summary),
         "{{counterfactual_note}}": _escape(counterfactual_note),
         "{{counterfactual_original_image}}": cf_original_uri,
@@ -586,6 +638,8 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
       padding: 5mm;
       position: relative;
       overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }}
 
     .card::before {{
@@ -678,6 +732,72 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
       grid-template-columns: 1.55fr 0.95fr;
       gap: 6mm;
       margin-bottom: 6mm;
+    }}
+
+    .cover-page .brand-row {{
+      margin-bottom: 8mm;
+    }}
+
+    .cover-page h1 {{
+      font-size: 29pt;
+      margin-bottom: 3mm;
+    }}
+
+    .cover-page .mini-divider {{
+      margin: 3mm 0 4mm;
+    }}
+
+    .cover-page .kpi-grid {{
+      gap: 3mm;
+      margin-bottom: 5mm;
+    }}
+
+    .cover-page .kpi-card {{
+      min-height: 22mm;
+      padding: 3.2mm;
+    }}
+
+    .cover-page .kpi-label {{
+      margin-bottom: 1.8mm;
+    }}
+
+    .cover-page .kpi-hint {{
+      margin-top: 1.4mm;
+    }}
+
+    .cover-page .hero-layout {{
+      margin-bottom: 0;
+    }}
+
+    .cover-page .card {{
+      padding: 4.2mm;
+    }}
+
+    .cover-page .hero-image {{
+      height: 72mm;
+    }}
+
+    .cover-page .body-text {{
+      font-size: 8.2pt;
+      line-height: 1.43;
+    }}
+
+    .cover-page .info-list {{
+      gap: 2mm;
+      margin-top: 4mm;
+    }}
+
+    .cover-page .card-title.mt-8 {{
+      margin-top: 5mm;
+    }}
+
+    .cover-page .chips {{
+      gap: 1.5mm;
+    }}
+
+    .cover-page .chip {{
+      font-size: 7.2pt;
+      padding: 1.2mm 2.4mm;
     }}
 
     .hero-image {{
@@ -784,8 +904,9 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
     .table-slot table {{
       width: 100%;
       border-collapse: collapse;
-      font-size: 8.4pt;
-      line-height: 1.25;
+      table-layout: fixed;
+      font-size: 7.7pt;
+      line-height: 1.18;
     }}
 
     .table-empty {{
@@ -800,15 +921,18 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
     .table-slot th,
     .table-slot td {{
       border: 1px solid {BORDER};
-      padding: 2.1mm 2.5mm;
+      padding: 1.65mm 1.8mm;
       text-align: left;
       vertical-align: middle;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }}
 
     .table-slot th {{
       background: {TEAL};
       color: {WHITE};
       font-weight: 800;
+      line-height: 1.08;
     }}
 
     .table-slot tr:nth-child(even) td {{
@@ -920,6 +1044,32 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
       margin-bottom: 6mm;
     }}
 
+    .metrics-page .card {{
+      padding: 4.2mm;
+    }}
+
+    .metrics-page .metrics-dashboard {{
+      gap: 3mm;
+      margin-bottom: 4mm;
+    }}
+
+    .metrics-page .kpi-card {{
+      min-height: 21mm;
+      padding: 3.2mm;
+    }}
+
+    .metrics-page .chart-card img {{
+      height: 52mm;
+    }}
+
+    .metrics-page .card.table-slot {{
+      margin-top: 4mm;
+    }}
+
+    .metrics-page .table-slot table {{
+      font-size: 7.4pt;
+    }}
+
     .counterfactual-images {{
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -931,6 +1081,53 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
       display: grid;
       grid-template-columns: 1.1fr 0.9fr;
       gap: 6mm;
+    }}
+
+    .counterfactual-page .section-header {{
+      margin-bottom: 7mm;
+      padding-bottom: 4mm;
+    }}
+
+    .counterfactual-page .card {{
+      padding: 4mm;
+    }}
+
+    .counterfactual-page .body-text {{
+      font-size: 8.2pt;
+      line-height: 1.42;
+    }}
+
+    .counterfactual-page .note {{
+      padding: 2.2mm 3mm;
+      font-size: 7.5pt;
+      line-height: 1.35;
+    }}
+
+    .counterfactual-page .counterfactual-images {{
+      gap: 4mm;
+      margin-bottom: 4mm;
+    }}
+
+    .counterfactual-page .image-card.small img {{
+      height: 31mm;
+    }}
+
+    .counterfactual-page .chart-card img {{
+      height: 47mm;
+    }}
+
+    .counterfactual-page .counterfactual-bottom {{
+      grid-template-columns: 0.98fr 1.02fr;
+      gap: 4mm;
+    }}
+
+    .counterfactual-page .table-slot table {{
+      font-size: 6.8pt;
+    }}
+
+    .counterfactual-page .table-slot th,
+    .counterfactual-page .table-slot td {{
+      padding: 1.15mm 1.05mm;
     }}
 
     .shared-images {{
@@ -960,7 +1157,7 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
 
 <body>
 
-  <section class="page">
+  <section class="page cover-page">
     <div class="top-rule"></div>
 
     <div class="brand-row">
@@ -1033,13 +1230,6 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
         <div class="chips">
           {{{{included_sections}}}}
         </div>
-      </div>
-    </div>
-
-    <div class="card gold">
-      <div class="card-title">Report Notes</div>
-      <div class="body-text">
-        Η αναφορά αποτυπώνει την τρέχουσα κατάσταση ενός single-image run και προορίζεται ως ερμηνεύσιμο snapshot του app, όχι ως πλήρης dataset-level αξιολόγηση.
       </div>
     </div>
 
@@ -1173,7 +1363,7 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
   </section>
 
 
-  <section class="page">
+  <section class="page metrics-page">
     <div class="section-header">
       <div class="section-title-block">
         <h2>Metrics</h2>
@@ -1214,7 +1404,7 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
   </section>
 
 
-  <section class="page">
+  <section class="page counterfactual-page">
     <div class="section-header">
       <div class="section-title-block">
         <h2>Counterfactual</h2>

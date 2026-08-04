@@ -1,0 +1,25 @@
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    image: xai-thesis-streamlit:latest
+    ports:
+      - "8501:8501"
+    volumes:
+      - model-cache:/app/.cache
+    environment:
+      STREAMLIT_SERVER_HEADLESS: "true"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: xai-thesis-api:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - model-cache:/app/.cache
+
+volumes:
+  model-cache:
