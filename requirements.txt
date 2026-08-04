@@ -1,4 +1,4 @@
-streamlit
+streamlit==1.55.0
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.11.0+cpu; platform_system == "Linux"
 torchvision==0.26.0+cpu; platform_system == "Linux"
