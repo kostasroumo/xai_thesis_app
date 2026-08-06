@@ -1542,10 +1542,18 @@ def _build_html_report(payload: Mapping[str, Any]) -> str:
 
 def _find_chrome_binary() -> str | None:
     candidates = [
+        os.environ.get("CHROME_BIN"),
+        os.environ.get("CHROMIUM_BIN"),
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
         shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"),
         shutil.which("chromium"),
         shutil.which("chromium-browser"),
+        shutil.which("chrome"),
     ]
     for candidate in candidates:
         if candidate and Path(candidate).exists():
@@ -1567,6 +1575,9 @@ def _render_pdf_via_chrome(html_report: str) -> bytes | None:
         command = [
             chrome_binary,
             "--headless=new",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-extensions",
             "--disable-gpu",
             "--disable-software-rasterizer",
             "--allow-file-access-from-files",
