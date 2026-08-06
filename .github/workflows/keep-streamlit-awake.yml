@@ -9,15 +9,37 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit health endpoint
+      - name: Ping Streamlit app
         env:
           STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
+          FALLBACK_STREAMLIT_APP_URL: "https://xaithesisapp-mzygizky7aqcobheudc3xw.streamlit.app"
         run: |
-          if [ -z "$STREAMLIT_APP_URL" ]; then
-            echo "Missing STREAMLIT_APP_URL repository secret."
+          app_url="${STREAMLIT_APP_URL:-$FALLBACK_STREAMLIT_APP_URL}"
+          app_url="${app_url%/}"
+
+          if [ -z "$app_url" ]; then
+            echo "Missing Streamlit app URL."
             exit 1
           fi
 
-          health_url="${STREAMLIT_APP_URL%/}/_stcore/health"
-          echo "Pinging ${health_url}"
-          curl --fail --location --max-time 60 --retry 3 --retry-delay 10 "$health_url"
+          # Private Streamlit Cloud apps redirect normal URLs to login.
+          # The embed URL is still a lightweight public page request and is safer for keep-alive pings.
+          ping_url="${app_url}/?embed=true"
+          echo "Pinging ${ping_url}"
+
+          http_code="$(
+            curl --silent --show-error --location \
+              --max-time 60 \
+              --retry 3 \
+              --retry-delay 10 \
+              --output /dev/null \
+              --write-out "%{http_code}" \
+              "$ping_url"
+          )"
+
+          echo "HTTP ${http_code}"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 400 ]; then
+            echo "Keep-alive ping failed."
+            echo "If the URL redirects to Streamlit login, make the app public or use the embed URL."
+            exit 1
+          fi
