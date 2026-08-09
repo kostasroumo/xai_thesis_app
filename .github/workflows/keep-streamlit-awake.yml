@@ -2,14 +2,19 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    - cron: "0 */8 * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit app
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Open Streamlit app like a real visitor
         env:
           STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
           FALLBACK_STREAMLIT_APP_URL: "https://xaithesisapp-mzygizky7aqcobheudc3xw.streamlit.app"
@@ -22,24 +27,80 @@ jobs:
             exit 1
           fi
 
-          # Private Streamlit Cloud apps redirect normal URLs to login.
-          # The embed URL is still a lightweight public page request and is safer for keep-alive pings.
-          ping_url="${app_url}/?embed=true"
-          echo "Pinging ${ping_url}"
+          echo "Target app: ${app_url}"
+          echo "Installing Playwright Chromium..."
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.46.1 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
 
-          http_code="$(
-            curl --silent --show-error --location \
-              --max-time 60 \
-              --retry 3 \
-              --retry-delay 10 \
-              --output /dev/null \
-              --write-out "%{http_code}" \
-              "$ping_url"
-          )"
+          STREAMLIT_TARGET_URL="$app_url" node <<'NODE'
+          const { chromium } = require("playwright");
 
-          echo "HTTP ${http_code}"
-          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 400 ]; then
-            echo "Keep-alive ping failed."
-            echo "If the URL redirects to Streamlit login, make the app public or use the embed URL."
-            exit 1
-          fi
+          const appUrl = process.env.STREAMLIT_TARGET_URL;
+          const authPatterns = [
+            "share.streamlit.io/-/auth",
+            "/-/login",
+            "Sign in",
+            "Continue with Google",
+          ];
+          const sleepPatterns = [
+            "This app has gone to sleep",
+            "get this app back up",
+            "Zzzz",
+          ];
+
+          (async () => {
+            const browser = await chromium.launch({ args: ["--no-sandbox"] });
+            const page = await browser.newPage({
+              viewport: { width: 1440, height: 1000 },
+              userAgent:
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            });
+
+            console.log(`Opening ${appUrl}`);
+            await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 90000 });
+            await page.waitForTimeout(5000);
+
+            let bodyText = await page.locator("body").innerText({ timeout: 10000 }).catch(() => "");
+            let currentUrl = page.url();
+
+            if (authPatterns.some((pattern) => currentUrl.includes(pattern) || bodyText.includes(pattern))) {
+              console.error("The app redirected to Streamlit auth/login.");
+              console.error("Make the app public from Streamlit Cloud > App settings > Sharing.");
+              process.exit(1);
+            }
+
+            const isSleeping = sleepPatterns.some((pattern) => bodyText.includes(pattern));
+            if (isSleeping) {
+              console.log("Sleeping page detected. Trying to wake the app...");
+              const wakeButton = page.getByRole("button", {
+                name: /yes|get this app back up|wake/i,
+              });
+              if (await wakeButton.first().isVisible().catch(() => false)) {
+                await wakeButton.first().click();
+                await page.waitForLoadState("domcontentloaded", { timeout: 90000 }).catch(() => {});
+              }
+            }
+
+            await page.waitForTimeout(60000);
+            bodyText = await page.locator("body").innerText({ timeout: 10000 }).catch(() => "");
+            currentUrl = page.url();
+            await browser.close();
+
+            if (authPatterns.some((pattern) => currentUrl.includes(pattern) || bodyText.includes(pattern))) {
+              console.error("The app is still behind Streamlit auth/login.");
+              process.exit(1);
+            }
+
+            if (sleepPatterns.some((pattern) => bodyText.includes(pattern))) {
+              console.error("The app still appears to be sleeping after the wake attempt.");
+              process.exit(1);
+            }
+
+            console.log("Streamlit app visit completed successfully.");
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
