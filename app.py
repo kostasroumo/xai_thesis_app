@@ -118,53 +118,54 @@ st.set_page_config(page_title="XAI Thesis App", layout="wide", initial_sidebar_s
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Serif:wght@600;700&display=swap');
 
     :root {
-        --app-bg: #f5f7fb;
+        --app-bg: #f3f3ef;
         --surface: #ffffff;
-        --surface-soft: #f8faff;
-        --surface-tint: #f1f4ff;
-        --nav-bg: #071120;
-        --nav-bg-2: #101a2c;
-        --ink: #0f172a;
-        --ink-soft: #475569;
-        --muted: #64748b;
-        --line: #e2e8f0;
-        --line-strong: #cbd5e1;
-        --accent: #6545f6;
-        --accent-2: #4f6df5;
-        --accent-soft: #ede9fe;
-        --success: #15803d;
-        --success-soft: #dcfce7;
+        --surface-soft: #f7f6f2;
+        --surface-tint: #e8f1ef;
+        --nav-bg: #0b1b22;
+        --nav-bg-2: #10252d;
+        --ink: #111827;
+        --ink-soft: #40505f;
+        --muted: #6c7885;
+        --line: #dcded9;
+        --line-strong: #c5c9c3;
+        --accent: #116b64;
+        --accent-2: #b7653d;
+        --accent-soft: #e4efed;
+        --success: #116b64;
+        --success-soft: #dff3ee;
         --warning: #d97706;
         --danger: #dc2626;
-        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-        --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
-        --shadow-lg: 0 24px 70px rgba(15, 23, 42, 0.12);
-        --radius: 16px;
-        --radius-sm: 11px;
+        --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.035);
+        --shadow-md: 0 5px 16px rgba(17, 24, 39, 0.05);
+        --shadow-lg: 0 14px 34px rgba(17, 24, 39, 0.07);
+        --radius: 12px;
+        --radius-sm: 9px;
     }
 
     html, body, [class*="css"] {
-        font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         color: var(--ink);
     }
 
     h1, h2, h3 {
-        font-family: "Space Grotesk", "Manrope", sans-serif;
-        letter-spacing: -0.035em;
+        font-family: "IBM Plex Serif", "IBM Plex Sans", serif;
+        letter-spacing: -0.03em;
         color: var(--ink);
     }
 
     [data-testid="stAppViewContainer"] {
         background:
-            radial-gradient(circle at 72% -6%, rgba(101, 69, 246, 0.14), transparent 35%),
-            linear-gradient(180deg, #fbfdff 0%, var(--app-bg) 46%, #eef3fb 100%);
+            radial-gradient(circle at 74% -10%, rgba(15, 118, 110, 0.12), transparent 35%),
+            radial-gradient(circle at 6% 14%, rgba(184, 92, 46, 0.08), transparent 30%),
+            linear-gradient(180deg, #fffdf8 0%, var(--app-bg) 48%, #edf2ef 100%);
     }
 
     [data-testid="stHeader"] {
-        background: rgba(245, 247, 251, 0.72);
+        background: rgba(244, 241, 234, 0.78);
         backdrop-filter: blur(14px);
     }
 
@@ -180,10 +181,11 @@ st.markdown(
 
     [data-testid="stSidebar"] {
         background:
-            radial-gradient(circle at 18% 2%, rgba(101, 69, 246, 0.36), transparent 32%),
+            radial-gradient(circle at 20% 3%, rgba(45, 212, 191, 0.16), transparent 32%),
+            radial-gradient(circle at 80% 20%, rgba(184, 92, 46, 0.14), transparent 34%),
             linear-gradient(180deg, var(--nav-bg-2), var(--nav-bg));
         border-right: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 16px 0 40px rgba(15, 23, 42, 0.18);
+        box-shadow: 18px 0 50px rgba(7, 21, 27, 0.20);
     }
 
     [data-testid="stSidebar"] > div:first-child {
@@ -225,9 +227,9 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-        background: linear-gradient(135deg, #7c3aed, var(--accent));
-        border-color: rgba(255, 255, 255, 0.10);
-        box-shadow: 0 12px 28px rgba(101, 69, 246, 0.28);
+        background: linear-gradient(135deg, #0f766e, #155e75);
+        border-color: rgba(153, 246, 228, 0.18);
+        box-shadow: 0 14px 30px rgba(15, 118, 110, 0.22);
     }
 
     [data-testid="stSidebar"] [role="radiogroup"] label p {
@@ -249,7 +251,8 @@ st.markdown(
         height: 100vh;
         padding: 1.65rem 1.1rem;
         background:
-            radial-gradient(circle at 20% 4%, rgba(101, 69, 246, 0.36), transparent 30%),
+            radial-gradient(circle at 20% 4%, rgba(45, 212, 191, 0.16), transparent 30%),
+            radial-gradient(circle at 82% 18%, rgba(184, 92, 46, 0.14), transparent 34%),
             linear-gradient(180deg, var(--nav-bg-2), var(--nav-bg));
         border-right: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: 16px 0 40px rgba(15, 23, 42, 0.18);
@@ -273,10 +276,10 @@ st.markdown(
         border-radius: 12px;
         display: grid;
         place-items: center;
-        background: rgba(101, 69, 246, 0.18);
-        border: 1px solid rgba(154, 138, 255, 0.62);
-        color: #b7a8ff;
-        font-family: "Space Grotesk", sans-serif;
+        background: rgba(15, 118, 110, 0.22);
+        border: 1px solid rgba(153, 246, 228, 0.46);
+        color: #99f6e4;
+        font-family: "IBM Plex Serif", serif;
         font-weight: 700;
     }
 
@@ -324,9 +327,9 @@ st.markdown(
     }
 
     .xai-nav-item.active {
-        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        background: linear-gradient(135deg, #0f766e, #155e75);
         color: #ffffff;
-        box-shadow: 0 12px 28px rgba(101, 69, 246, 0.28);
+        box-shadow: 0 14px 30px rgba(15, 118, 110, 0.22);
     }
 
     a.xai-nav-item.active:visited {
@@ -357,7 +360,27 @@ st.markdown(
     }
 
     .xai-page-heading {
-        margin: 0.35rem 0 1.0rem;
+        position: relative;
+        margin: 0.25rem 0 1.05rem;
+        padding: 1.05rem 1.2rem 1.08rem;
+        border: 1px solid rgba(201, 188, 174, 0.72);
+        border-radius: 24px;
+        background:
+            linear-gradient(135deg, rgba(255, 253, 249, 0.96), rgba(249, 245, 237, 0.88)),
+            radial-gradient(circle at 95% 10%, rgba(15, 118, 110, 0.08), transparent 30%);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    .xai-page-heading::before {
+        content: "";
+        position: absolute;
+        left: 1.2rem;
+        top: 0;
+        width: 72px;
+        height: 4px;
+        border-radius: 0 0 999px 999px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
     }
 
     .xai-page-kicker {
@@ -370,11 +393,11 @@ st.markdown(
     }
 
     .xai-page-title {
-        font-family: "Space Grotesk", "Manrope", sans-serif;
-        font-size: clamp(2rem, 3vw, 3.15rem);
+        font-family: "IBM Plex Serif", "IBM Plex Sans", serif;
+        font-size: clamp(2.05rem, 3vw, 3.25rem);
         line-height: 1;
         font-weight: 700;
-        letter-spacing: -0.055em;
+        letter-spacing: -0.045em;
         color: var(--ink);
         margin-bottom: 0.38rem;
     }
@@ -386,17 +409,34 @@ st.markdown(
         line-height: 1.55;
     }
 
+    .xai-page-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.48rem;
+        margin-top: 0.9rem;
+    }
+
+    .xai-page-meta span {
+        border: 1px solid rgba(15, 118, 110, 0.18);
+        background: rgba(234, 244, 241, 0.72);
+        color: #155e5b;
+        border-radius: 999px;
+        padding: 0.34rem 0.62rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
     [data-testid="stExpander"] {
-        border: 1px solid rgba(203, 213, 225, 0.82);
+        border: 1px solid rgba(201, 188, 174, 0.84);
         border-radius: var(--radius);
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: var(--shadow-sm);
+        background: rgba(255, 253, 249, 0.98);
+        box-shadow: var(--shadow-md);
         overflow: hidden;
     }
 
     [data-testid="stExpander"] details,
     [data-testid="stExpander"] details > div {
-        background: rgba(255, 255, 255, 0.98);
+        background: rgba(255, 253, 249, 0.99) !important;
     }
 
     [data-testid="stExpander"] summary {
@@ -408,7 +448,7 @@ st.markdown(
     [data-testid="stExpander"] [data-testid="stMarkdownContainer"] h4,
     [data-testid="stExpander"] [data-testid="stMarkdownContainer"] h5 {
         color: var(--ink) !important;
-        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-family: "IBM Plex Serif", "IBM Plex Sans", serif;
         font-weight: 700;
         letter-spacing: -0.03em;
         margin-bottom: 0.45rem;
@@ -438,18 +478,18 @@ st.markdown(
 
     [data-testid="stFileUploader"] section {
         min-height: 190px;
-        border: 2px dashed rgba(101, 69, 246, 0.34);
+        border: 2px dashed rgba(15, 118, 110, 0.34);
         background:
-            radial-gradient(circle at 50% 20%, rgba(101, 69, 246, 0.08), transparent 42%),
-            #fbfbff;
+            radial-gradient(circle at 50% 18%, rgba(15, 118, 110, 0.08), transparent 42%),
+            #fffdf9;
         border-radius: var(--radius);
     }
 
     [data-testid="stExpander"] [data-testid="stFileUploader"] section {
-        border-color: rgba(101, 69, 246, 0.42);
+        border-color: rgba(15, 118, 110, 0.42);
         background:
-            radial-gradient(circle at 50% 20%, rgba(101, 69, 246, 0.10), transparent 42%),
-            #ffffff;
+            radial-gradient(circle at 50% 18%, rgba(15, 118, 110, 0.10), transparent 42%),
+            #fffdf9;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
     }
 
@@ -469,7 +509,7 @@ st.markdown(
     .stDownloadButton > button {
         border-radius: 12px;
         border: 1px solid var(--accent);
-        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        background: linear-gradient(135deg, #0f766e, #155e75);
         color: #ffffff;
         font-weight: 800;
         box-shadow: var(--shadow-sm);
@@ -481,9 +521,9 @@ st.markdown(
     .stDownloadButton > button:hover {
         transform: translateY(-1px);
         filter: brightness(0.98);
-        box-shadow: 0 14px 28px rgba(101, 69, 246, 0.20);
+        box-shadow: 0 14px 28px rgba(15, 118, 110, 0.18);
         color: #ffffff;
-        border-color: #5b35e5;
+        border-color: #0f766e;
     }
 
     .stButton > button[kind="secondary"] {
@@ -500,7 +540,7 @@ st.markdown(
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.45rem;
         border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.72);
+        background: rgba(255, 253, 249, 0.78);
         border-radius: 15px;
         padding: 0.38rem;
         box-shadow: var(--shadow-sm);
@@ -528,8 +568,8 @@ st.markdown(
     [data-testid="stImage"] img {
         border-radius: 13px;
         border: 1px solid var(--line);
-        box-shadow: var(--shadow-sm);
-        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.06);
+        background: var(--surface);
     }
 
     [data-testid="stMetric"],
@@ -537,7 +577,7 @@ st.markdown(
         border-color: var(--line) !important;
         border-radius: var(--radius) !important;
         box-shadow: var(--shadow-sm);
-        background: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 253, 249, 0.94);
     }
 
     .xai-step-grid {
@@ -548,12 +588,19 @@ st.markdown(
     }
 
     .xai-step-card {
-        background: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 253, 249, 0.94);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         padding: 0.95rem;
         min-height: 112px;
         box-shadow: var(--shadow-sm);
+        transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    }
+
+    .xai-step-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(15, 118, 110, 0.24);
+        box-shadow: var(--shadow-md);
     }
 
     .xai-step-card h4 {
@@ -575,7 +622,7 @@ st.markdown(
     .xai-kpi,
     .xai-compare-card,
     .xai-dashboard-card {
-        background: rgba(255, 255, 255, 0.94);
+        background: rgba(255, 253, 249, 0.95);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         box-shadow: var(--shadow-sm);
@@ -629,11 +676,11 @@ st.markdown(
 
     .xai-chip {
         background: var(--accent-soft);
-        border: 1px solid rgba(101, 69, 246, 0.18);
+        border: 1px solid rgba(15, 118, 110, 0.16);
         border-radius: 999px;
         padding: 0.4rem 0.72rem;
         font-size: 0.88rem;
-        color: #5035d4;
+        color: #155e5b;
         font-weight: 800;
     }
 
@@ -717,7 +764,7 @@ st.markdown(
     }
 
     .xai-section-title {
-        font-family: "Space Grotesk", "Manrope", sans-serif;
+        font-family: "IBM Plex Serif", "IBM Plex Sans", serif;
         font-size: 1.65rem;
         font-weight: 700;
         color: var(--ink);
@@ -791,7 +838,7 @@ st.markdown(
     .xai-prediction-class {
         font-size: 1.58rem;
         font-weight: 800;
-        color: var(--accent);
+        color: #0f766e;
         line-height: 1.14;
         overflow-wrap: anywhere;
     }
@@ -806,14 +853,14 @@ st.markdown(
     .xai-progress-track {
         height: 8px;
         border-radius: 999px;
-        background: #e8edf6;
+        background: #e7ddd0;
         overflow: hidden;
     }
 
     .xai-progress-fill {
         height: 100%;
         border-radius: 999px;
-        background: linear-gradient(90deg, #7c3aed, var(--accent));
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
     }
 
     .xai-progress-scale {
@@ -857,7 +904,7 @@ st.markdown(
     .xai-pred-bar {
         height: 6px;
         border-radius: 999px;
-        background: #e8edf6;
+        background: #e7ddd0;
         overflow: hidden;
     }
 
@@ -879,7 +926,7 @@ st.markdown(
         flex-wrap: wrap;
         gap: 0.55rem;
         align-items: center;
-        background: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 253, 249, 0.94);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         box-shadow: var(--shadow-sm);
@@ -899,8 +946,8 @@ st.markdown(
     .xai-ribbon-chip {
         border-radius: 999px;
         background: var(--surface-tint);
-        border: 1px solid rgba(101, 69, 246, 0.14);
-        color: #4731bf;
+        border: 1px solid rgba(15, 118, 110, 0.14);
+        color: #155e5b;
         padding: 0.44rem 0.68rem;
         font-weight: 800;
         font-size: 0.84rem;
@@ -908,12 +955,12 @@ st.markdown(
 
     .xai-ribbon-chip.primary {
         color: #ffffff;
-        background: linear-gradient(135deg, #7c3aed, var(--accent));
+        background: linear-gradient(135deg, #0f766e, #155e75);
         border-color: var(--accent);
     }
 
     .xai-empty-state {
-        background: rgba(255, 255, 255, 0.84);
+        background: rgba(255, 253, 249, 0.90);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         padding: 1rem;
@@ -928,6 +975,327 @@ st.markdown(
         box-shadow: var(--shadow-md);
     }
 
+    /* UI v3: compact scientific workstation. */
+    [data-testid="stAppViewContainer"]::before {
+        display: none;
+    }
+
+    [data-testid="stAppViewContainer"] {
+        background: var(--app-bg);
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(243, 243, 239, 0.94);
+        border-bottom: 1px solid rgba(220, 222, 217, 0.72);
+        backdrop-filter: blur(8px);
+    }
+
+    .block-container {
+        max-width: 1500px;
+        padding-top: 1rem;
+        padding-left: clamp(1.2rem, 2.2vw, 2rem);
+        padding-right: clamp(1.2rem, 2.2vw, 2rem);
+    }
+
+    [data-testid="stSidebar"] {
+        min-width: 256px !important;
+        max-width: 256px !important;
+        background: var(--nav-bg);
+        border-right: 1px solid #20343c;
+        box-shadow: none;
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        padding: 1.2rem 0.85rem;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        position: relative;
+        min-height: 43px;
+        padding: 0.58rem 0.68rem 0.58rem 2.82rem;
+        background: transparent;
+        border-color: transparent;
+        border-radius: 9px;
+        transform: none;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+        background: #132c35;
+        border-color: #203b45;
+        transform: none;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label::before {
+        position: absolute;
+        left: 0.68rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.45rem;
+        height: 1.45rem;
+        display: grid;
+        place-items: center;
+        border-radius: 0.42rem;
+        border: 1px solid #38505a;
+        background: #132830;
+        color: #b9c8d6;
+        font-size: 0.61rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:nth-child(1)::before { content: "01"; }
+    [data-testid="stSidebar"] [role="radiogroup"] label:nth-child(2)::before { content: "02"; }
+    [data-testid="stSidebar"] [role="radiogroup"] label:nth-child(3)::before { content: "03"; }
+    [data-testid="stSidebar"] [role="radiogroup"] label:nth-child(4)::before { content: "04"; }
+    [data-testid="stSidebar"] [role="radiogroup"] label:nth-child(5)::before { content: "05"; }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.10);
+        color: #ffffff;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+        background: #176f68;
+        border-color: #2a857d;
+        box-shadow: none;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child {
+        opacity: 0;
+        width: 0;
+        min-width: 0;
+        margin: 0;
+    }
+
+    .xai-brand {
+        padding: 0.35rem 0.3rem 1.05rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .xai-brand-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: #163c41;
+    }
+
+    .xai-brand-title {
+        font-size: 1.02rem;
+        letter-spacing: -0.02em;
+    }
+
+    .xai-brand-subtitle {
+        color: #9eb0bf;
+    }
+
+    .xai-page-heading {
+        display: block;
+        margin: 0 0 1rem;
+        padding: 0.2rem 0 0.92rem;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .xai-page-heading::before {
+        left: 0;
+        top: auto;
+        bottom: -1px;
+        width: 64px;
+        height: 2px;
+        border-radius: 0;
+        background: var(--accent);
+    }
+
+    .xai-page-copy {
+        min-width: 0;
+    }
+
+    .xai-page-title {
+        font-size: clamp(2rem, 2.7vw, 2.7rem);
+        line-height: 1.04;
+    }
+
+    .xai-page-subtitle {
+        max-width: 92ch;
+        font-size: 0.95rem;
+        line-height: 1.48;
+    }
+
+    .xai-page-meta {
+        margin-top: 0.65rem;
+        gap: 0.38rem;
+    }
+
+    .xai-page-meta span {
+        border-radius: 6px;
+        padding: 0.25rem 0.48rem;
+        font-size: 0.72rem;
+        background: #edf2ef;
+    }
+
+    .xai-workflow-card {
+        display: none;
+    }
+
+    .xai-callout,
+    .xai-panel,
+    .xai-kpi,
+    .xai-compare-card,
+    .xai-dashboard-card,
+    .xai-empty-state,
+    [data-testid="stExpander"],
+    section.main [data-testid="stVerticalBlockBorderWrapper"] {
+        backdrop-filter: none;
+    }
+
+    .xai-kpi,
+    .xai-dashboard-card,
+    .xai-panel,
+    .xai-empty-state {
+        box-shadow: var(--shadow-sm);
+    }
+
+    .xai-kpi {
+        min-height: 126px;
+        padding: 1.0rem 1.05rem;
+    }
+
+    .xai-kpi::before {
+        height: 4px;
+        background: var(--accent);
+    }
+
+    .xai-kpi-value {
+        font-size: 1.52rem;
+        letter-spacing: -0.035em;
+    }
+
+    .xai-dashboard-card {
+        padding: 1.12rem;
+    }
+
+    .xai-card-title-row {
+        padding-bottom: 0.85rem;
+        margin-bottom: 1rem;
+    }
+
+    .xai-card-title {
+        font-size: 1.02rem;
+    }
+
+    .xai-method-ribbon {
+        position: sticky;
+        top: 0.45rem;
+        z-index: 50;
+        padding: 0.62rem 0.72rem;
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.045);
+    }
+
+    .xai-ribbon-label {
+        color: #263543;
+    }
+
+    .xai-ribbon-chip {
+        border-radius: 6px;
+        background: #f0f3f0;
+    }
+
+    .xai-ribbon-chip.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .xai-section-header {
+        padding: 0.72rem 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .xai-section-title {
+        font-size: 1.72rem;
+    }
+
+    [data-testid="stFileUploader"] section {
+        min-height: 150px;
+        border-width: 1px;
+        border-radius: 10px;
+        background: #fafbf9;
+    }
+
+    [data-testid="stImage"] img {
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    [data-testid="stDataFrame"] {
+        background: var(--surface);
+        box-shadow: 0 1px 0 rgba(255,255,255,0.72), var(--shadow-sm);
+    }
+
+    .stButton > button,
+    .stDownloadButton > button {
+        border-radius: 8px;
+        background: var(--accent);
+        box-shadow: none;
+        letter-spacing: -0.01em;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        transform: none;
+        background: #0d5b55;
+        box-shadow: none;
+    }
+
+    [data-testid="stExpander"],
+    section.main [data-testid="stVerticalBlockBorderWrapper"],
+    .xai-callout,
+    .xai-panel,
+    .xai-kpi,
+    .xai-compare-card,
+    .xai-dashboard-card,
+    .xai-empty-state,
+    .xai-preview-card {
+        border-radius: var(--radius) !important;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+    }
+
+    [data-testid="stExpander"] details,
+    [data-testid="stExpander"] details > div {
+        background: var(--surface) !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.2rem;
+        padding: 0.25rem;
+        border-radius: 9px;
+        background: #eceeea;
+        box-shadow: none;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        min-height: 2.45rem;
+        border-radius: 7px;
+        padding: 0.5rem 0.86rem;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: var(--accent);
+        background: #ffffff;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.08);
+    }
+
     @media (max-width: 1119px) {
         .xai-side-rail {
             display: none;
@@ -936,7 +1304,8 @@ st.markdown(
 
     @media (max-width: 900px) {
         .xai-analysis-grid,
-        .xai-prediction-grid {
+        .xai-prediction-grid,
+        .xai-page-heading {
             grid-template-columns: 1fr;
         }
 
@@ -946,6 +1315,10 @@ st.markdown(
 
         .xai-page-title {
             font-size: 2rem;
+        }
+
+        [data-testid="collapsedControl"] {
+            display: flex;
         }
     }
     </style>
@@ -1654,11 +2027,19 @@ def render_page_heading() -> None:
     st.markdown(
         """
         <div class="xai-page-heading">
-            <div class="xai-page-kicker">XAI Analysis Workbench</div>
-            <div class="xai-page-title">Single Image Analysis</div>
-            <div class="xai-page-subtitle">
-                Upload an image to generate explanations, evaluate model predictions, inspect semantic concepts,
-                test evidence removal and export a complete thesis-ready report.
+            <div class="xai-page-copy">
+                <div class="xai-page-kicker">XAI Analysis Workbench</div>
+                <div class="xai-page-title">Single Image Analysis</div>
+                <div class="xai-page-subtitle">
+                    Upload an image to generate explanations, evaluate model predictions, inspect semantic concepts,
+                    test evidence removal and export a complete thesis-ready report.
+                </div>
+                <div class="xai-page-meta">
+                    <span>ResNet50 / ImageNet</span>
+                    <span>Visual Explanations</span>
+                    <span>Semantic Evidence</span>
+                    <span>Metrics + PDF Export</span>
+                </div>
             </div>
         </div>
         """,
@@ -1908,249 +2289,269 @@ robustness_noise_sigma = METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT
 
 with st.expander("Analysis Setup", expanded=bool(st.session_state.get("setup_panel_expanded", True))):
     st.markdown(
-        '<div class="xai-section-note">Upload image, choose explainers and adjust view options. Μετά το Run Analysis, το setup κλείνει αυτόματα για να μείνει καθαρό το dashboard.</div>',
+        '<div class="xai-section-note">Configure the image, explanation method and evaluation settings. Μετά το Run Analysis, το panel κλείνει αυτόματα.</div>',
         unsafe_allow_html=True,
     )
 
-    setup_upload_col, setup_method_col = st.columns([0.46, 0.54], gap="large")
-    with setup_upload_col:
-        st.markdown("#### Upload Image")
-        uploaded_file = st.file_uploader(
-            "Upload Image",
-            type=["jpg", "jpeg", "png", "bmp", "webp"],
-            label_visibility="collapsed",
-        )
-        st.caption("PNG, JPG, JPEG, BMP ή WEBP. Η ανάλυση ευθυγραμμίζεται στο model-space input.")
+    basic_settings_tab, method_settings_tab, metric_settings_tab = st.tabs(
+        ["Basic Setup", "Method Settings", "Metric Settings"]
+    )
 
-    with setup_method_col:
-        st.markdown("#### Method Selection")
-        explain_method = st.radio(
-            "Primary Explainer",
-            options=AVAILABLE_METHODS,
-            index=0,
-            horizontal=True,
-        )
-        comparison_selection = st.multiselect(
-            "Comparison Methods",
-            options=AVAILABLE_METHODS,
-            default=[explain_method],
-            max_selections=COMPARISON_LIMIT,
-            help="Επίλεξε έως τρεις μεθόδους για οπτική σύγκριση.",
-        )
-        score_type = st.radio(
-            "Score Type",
-            options=["logit", "prob"],
-            index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
-            horizontal=True,
-            help="Χρησιμοποίησε score logit της κλάσης ή πιθανότητα softmax για την εξήγηση.",
-        )
+    with basic_settings_tab:
+        setup_upload_col, setup_method_col = st.columns([0.42, 0.58], gap="large")
+        with setup_upload_col:
+            st.markdown("#### Upload Image")
+            uploaded_file = st.file_uploader(
+                "Upload Image",
+                type=["jpg", "jpeg", "png", "bmp", "webp"],
+                label_visibility="collapsed",
+            )
+            st.caption("PNG, JPG, JPEG, BMP ή WEBP. Η εικόνα ευθυγραμμίζεται στο model-space input.")
 
-    st.markdown("#### View Options")
-    view_style_col, view_layout_col, view_size_col, view_alpha_col = st.columns(4, gap="medium")
-    with view_style_col:
-        visual_style = st.radio(
-            "Explanation Style",
-            options=["Heatmap Overlay", "Simplified Focus"],
-            horizontal=True,
-        )
-    with view_layout_col:
-        view_mode = st.radio(
-            "Overview Layout",
-            options=["Side by Side", "Tabs"],
-            horizontal=True,
-        )
-    with view_size_col:
-        image_size_label = st.select_slider(
-            "Image Size",
-            options=["Small", "Medium", "Large"],
-            value="Medium",
-        )
-    with view_alpha_col:
-        overlay_alpha = st.slider(
-            "Overlay Opacity",
-            min_value=0.1,
-            max_value=0.9,
-            value=float(CAM_OVERLAY_ALPHA),
-            step=0.05,
-        )
+        with setup_method_col:
+            st.markdown("#### Explanation Method")
+            explain_method = st.radio(
+                "Primary Explainer",
+                options=AVAILABLE_METHODS,
+                index=0,
+                horizontal=True,
+            )
+            comparison_selection = st.multiselect(
+                "Comparison Methods",
+                options=AVAILABLE_METHODS,
+                default=[explain_method],
+                max_selections=COMPARISON_LIMIT,
+                help="Επίλεξε έως τρεις μεθόδους για οπτική σύγκριση.",
+            )
+            score_type = st.radio(
+                "Score Type",
+                options=["logit", "prob"],
+                index=0 if CAM_SCORE_TYPE_DEFAULT == "logit" else 1,
+                horizontal=True,
+                help="Χρησιμοποίησε score logit της κλάσης ή πιθανότητα softmax για την εξήγηση.",
+            )
 
-    with st.container(border=True):
-        st.markdown("#### Advanced Settings")
-        advanced_method_col, advanced_metrics_col = st.columns(2, gap="large")
+        st.markdown("#### View Options")
+        view_style_col, view_layout_col, view_size_col, view_alpha_col = st.columns(4, gap="medium")
+        with view_style_col:
+            visual_style = st.radio(
+                "Explanation Style",
+                options=["Heatmap Overlay", "Simplified Focus"],
+                horizontal=True,
+            )
+        with view_layout_col:
+            view_mode = st.radio(
+                "Overview Layout",
+                options=["Side by Side", "Tabs"],
+                horizontal=True,
+            )
+        with view_size_col:
+            image_size_label = st.select_slider(
+                "Image Size",
+                options=["Small", "Medium", "Large"],
+                value="Medium",
+            )
+        with view_alpha_col:
+            overlay_alpha = st.slider(
+                "Overlay Opacity",
+                min_value=0.1,
+                max_value=0.9,
+                value=float(CAM_OVERLAY_ALPHA),
+                step=0.05,
+            )
 
-        with advanced_method_col:
-            with st.container(border=True):
-                st.markdown("##### Method Settings")
-                if explain_method == "Integrated Gradients":
-                    ig_steps = st.slider("IG Steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
-                    ig_internal_batch_size = st.slider(
-                        "IG Internal Batch Size",
-                        min_value=1,
-                        max_value=64,
-                        value=IG_INTERNAL_BATCH_SIZE_DEFAULT,
-                        step=1,
-                    )
-                    ig_blur_radius = st.slider(
-                        "IG Baseline Blur Radius",
-                        min_value=0.0,
-                        max_value=15.0,
-                        value=float(IG_BASELINE_BLUR_RADIUS_DEFAULT),
-                        step=0.5,
-                    )
-                elif explain_method == "Occlusion":
-                    occ_patch_size = st.slider(
-                        "Occlusion Patch Size",
-                        min_value=4,
-                        max_value=64,
-                        value=OCC_PATCH_SIZE_DEFAULT,
-                        step=2,
-                    )
-                    occ_stride = st.slider(
-                        "Occlusion Stride",
-                        min_value=1,
-                        max_value=32,
-                        value=OCC_STRIDE_DEFAULT,
-                        step=1,
-                    )
-                    occ_blur_radius = st.slider(
-                        "Occlusion Baseline Blur Radius",
-                        min_value=0.0,
-                        max_value=15.0,
-                        value=float(OCC_BASELINE_BLUR_RADIUS_DEFAULT),
-                        step=0.5,
-                    )
-                elif explain_method == "LIME":
-                    lime_n_samples = st.slider(
-                        "LIME Samples",
-                        min_value=100,
-                        max_value=2000,
-                        value=LIME_N_SAMPLES_DEFAULT,
-                        step=50,
-                    )
-                    lime_perturbations_per_eval = st.slider(
-                        "LIME Perturbations per Eval",
-                        min_value=16,
-                        max_value=256,
-                        value=LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
-                        step=16,
-                    )
-                    lime_n_segments = st.slider(
-                        "LIME SLIC Segments",
-                        min_value=20,
-                        max_value=300,
-                        value=LIME_N_SEGMENTS_DEFAULT,
-                        step=10,
-                    )
-                    lime_compactness = st.slider(
-                        "LIME SLIC Compactness",
-                        min_value=1.0,
-                        max_value=40.0,
-                        value=float(LIME_COMPACTNESS_DEFAULT),
-                        step=0.5,
-                    )
-                    lime_sigma = st.slider(
-                        "LIME SLIC Sigma",
-                        min_value=0.0,
-                        max_value=5.0,
-                        value=float(LIME_SIGMA_DEFAULT),
-                        step=0.1,
-                    )
-                    lime_blur_radius = st.slider(
-                        "LIME Baseline Blur Radius",
-                        min_value=0.0,
-                        max_value=15.0,
-                        value=float(LIME_BASELINE_BLUR_RADIUS_DEFAULT),
-                        step=0.5,
-                    )
-                    lime_random_seed = st.number_input(
-                        "LIME Random Seed",
-                        min_value=0,
-                        max_value=1_000_000,
-                        value=LIME_RANDOM_SEED_DEFAULT,
-                        step=1,
-                    )
-                    if lime_n_samples > 1200:
-                        st.warning("Μεγάλος αριθμός δειγμάτων LIME μπορεί να είναι αργός σε CPU.")
-
-        with advanced_metrics_col:
-            with st.container(border=True):
-                st.markdown("##### Metric Settings")
-                compute_metrics = st.checkbox("Compute Metrics for Primary Method", value=METRICS_ENABLED_DEFAULT)
-                metrics_seed = st.number_input(
-                    "Metrics Random Seed",
+    with method_settings_tab:
+        st.markdown("#### Method-specific Parameters")
+        if explain_method == "Integrated Gradients":
+            ig_col1, ig_col2, ig_col3 = st.columns(3, gap="large")
+            with ig_col1:
+                ig_steps = st.slider("IG Steps", min_value=10, max_value=300, value=IG_STEPS_DEFAULT, step=10)
+            with ig_col2:
+                ig_internal_batch_size = st.slider(
+                    "IG Internal Batch Size",
+                    min_value=1,
+                    max_value=64,
+                    value=IG_INTERNAL_BATCH_SIZE_DEFAULT,
+                    step=1,
+                )
+            with ig_col3:
+                ig_blur_radius = st.slider(
+                    "IG Baseline Blur Radius",
+                    min_value=0.0,
+                    max_value=15.0,
+                    value=float(IG_BASELINE_BLUR_RADIUS_DEFAULT),
+                    step=0.5,
+                )
+        elif explain_method == "Occlusion":
+            occ_col1, occ_col2, occ_col3 = st.columns(3, gap="large")
+            with occ_col1:
+                occ_patch_size = st.slider(
+                    "Occlusion Patch Size",
+                    min_value=4,
+                    max_value=64,
+                    value=OCC_PATCH_SIZE_DEFAULT,
+                    step=2,
+                )
+            with occ_col2:
+                occ_stride = st.slider(
+                    "Occlusion Stride",
+                    min_value=1,
+                    max_value=32,
+                    value=OCC_STRIDE_DEFAULT,
+                    step=1,
+                )
+            with occ_col3:
+                occ_blur_radius = st.slider(
+                    "Occlusion Baseline Blur Radius",
+                    min_value=0.0,
+                    max_value=15.0,
+                    value=float(OCC_BASELINE_BLUR_RADIUS_DEFAULT),
+                    step=0.5,
+                )
+        elif explain_method == "LIME":
+            lime_core_col, lime_slic_col, lime_baseline_col = st.columns(3, gap="large")
+            with lime_core_col:
+                lime_n_samples = st.slider(
+                    "LIME Samples",
+                    min_value=100,
+                    max_value=2000,
+                    value=LIME_N_SAMPLES_DEFAULT,
+                    step=50,
+                )
+                lime_perturbations_per_eval = st.slider(
+                    "LIME Perturbations per Eval",
+                    min_value=16,
+                    max_value=256,
+                    value=LIME_PERTURBATIONS_PER_EVAL_DEFAULT,
+                    step=16,
+                )
+                lime_random_seed = st.number_input(
+                    "LIME Random Seed",
                     min_value=0,
                     max_value=1_000_000,
-                    value=METRICS_RANDOM_SEED_DEFAULT,
+                    value=LIME_RANDOM_SEED_DEFAULT,
                     step=1,
                 )
-                metrics_slic_segments = st.slider(
-                    "SLIC Segments",
+            with lime_slic_col:
+                lime_n_segments = st.slider(
+                    "LIME SLIC Segments",
                     min_value=20,
-                    max_value=200,
-                    value=METRICS_SLIC_SEGMENTS_DEFAULT,
+                    max_value=300,
+                    value=LIME_N_SEGMENTS_DEFAULT,
                     step=10,
                 )
-                metrics_slic_compactness = st.slider(
-                    "SLIC Compactness",
+                lime_compactness = st.slider(
+                    "LIME SLIC Compactness",
                     min_value=1.0,
                     max_value=40.0,
-                    value=float(METRICS_SLIC_COMPACTNESS_DEFAULT),
+                    value=float(LIME_COMPACTNESS_DEFAULT),
                     step=0.5,
                 )
-                metrics_slic_sigma = st.slider(
-                    "SLIC Sigma",
+            with lime_baseline_col:
+                lime_sigma = st.slider(
+                    "LIME SLIC Sigma",
                     min_value=0.0,
                     max_value=5.0,
-                    value=float(METRICS_SLIC_SIGMA_DEFAULT),
+                    value=float(LIME_SIGMA_DEFAULT),
                     step=0.1,
                 )
-                faithfulness_steps = st.slider(
-                    "Faithfulness Steps",
-                    min_value=4,
-                    max_value=30,
-                    value=METRICS_FAITHFULNESS_STEPS_DEFAULT,
-                    step=1,
-                )
-                faithfulness_blur_radius = st.slider(
-                    "Faithfulness Blur Radius",
+                lime_blur_radius = st.slider(
+                    "LIME Baseline Blur Radius",
                     min_value=0.0,
                     max_value=15.0,
-                    value=float(METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT),
+                    value=float(LIME_BASELINE_BLUR_RADIUS_DEFAULT),
                     step=0.5,
                 )
-                sensitivity_top_n = st.slider(
-                    "Sensitivity Top-N Superpixels",
-                    min_value=1,
-                    max_value=50,
-                    value=METRICS_SENSITIVITY_TOP_N_DEFAULT,
-                    step=1,
-                )
-                sensitivity_n_random = st.slider(
-                    "Sensitivity Random Subsets",
-                    min_value=5,
-                    max_value=100,
-                    value=METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
-                    step=5,
-                )
-                sensitivity_blur_radius = st.slider(
-                    "Sensitivity Blur Radius",
+            if lime_n_samples > 1200:
+                st.warning("Μεγάλος αριθμός δειγμάτων LIME μπορεί να είναι αργός σε CPU.")
+        else:
+            st.info("Grad-CAM uses the selected model layer directly and does not require extra parameters.")
+
+    with metric_settings_tab:
+        st.markdown("#### Metric Evaluation Parameters")
+        compute_metrics = st.checkbox("Compute Metrics for Primary Method", value=METRICS_ENABLED_DEFAULT)
+        metric_slic_col, metric_faithfulness_col, metric_sensitivity_col = st.columns(3, gap="large")
+        with metric_slic_col:
+            st.caption("Reproducibility & segmentation")
+            metrics_seed = st.number_input(
+                "Metrics Random Seed",
+                min_value=0,
+                max_value=1_000_000,
+                value=METRICS_RANDOM_SEED_DEFAULT,
+                step=1,
+            )
+            metrics_slic_segments = st.slider(
+                "SLIC Segments",
+                min_value=20,
+                max_value=200,
+                value=METRICS_SLIC_SEGMENTS_DEFAULT,
+                step=10,
+            )
+            metrics_slic_compactness = st.slider(
+                "SLIC Compactness",
+                min_value=1.0,
+                max_value=40.0,
+                value=float(METRICS_SLIC_COMPACTNESS_DEFAULT),
+                step=0.5,
+            )
+            metrics_slic_sigma = st.slider(
+                "SLIC Sigma",
+                min_value=0.0,
+                max_value=5.0,
+                value=float(METRICS_SLIC_SIGMA_DEFAULT),
+                step=0.1,
+            )
+        with metric_faithfulness_col:
+            st.caption("Faithfulness & robustness")
+            faithfulness_steps = st.slider(
+                "Faithfulness Steps",
+                min_value=4,
+                max_value=30,
+                value=METRICS_FAITHFULNESS_STEPS_DEFAULT,
+                step=1,
+            )
+            faithfulness_blur_radius = st.slider(
+                "Faithfulness Blur Radius",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(METRICS_FAITHFULNESS_BLUR_RADIUS_DEFAULT),
+                step=0.5,
+            )
+            compute_robustness = st.checkbox(
+                "Compute Robustness for Primary Method",
+                value=METRICS_ROBUSTNESS_ENABLED_DEFAULT,
+            )
+            if compute_robustness:
+                robustness_noise_sigma = st.slider(
+                    "Robustness Noise Sigma",
                     min_value=0.0,
-                    max_value=15.0,
-                    value=float(METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT),
-                    step=0.5,
+                    max_value=0.5,
+                    value=float(METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT),
+                    step=0.01,
                 )
-                compute_robustness = st.checkbox(
-                    "Compute Robustness for Primary Method",
-                    value=METRICS_ROBUSTNESS_ENABLED_DEFAULT,
-                )
-                if compute_robustness:
-                    robustness_noise_sigma = st.slider(
-                        "Robustness Noise Sigma",
-                        min_value=0.0,
-                        max_value=0.5,
-                        value=float(METRICS_ROBUSTNESS_NOISE_SIGMA_DEFAULT),
-                        step=0.01,
-                    )
+        with metric_sensitivity_col:
+            st.caption("Sensitivity analysis")
+            sensitivity_top_n = st.slider(
+                "Sensitivity Top-N Superpixels",
+                min_value=1,
+                max_value=50,
+                value=METRICS_SENSITIVITY_TOP_N_DEFAULT,
+                step=1,
+            )
+            sensitivity_n_random = st.slider(
+                "Sensitivity Random Subsets",
+                min_value=5,
+                max_value=100,
+                value=METRICS_SENSITIVITY_N_RANDOM_DEFAULT,
+                step=5,
+            )
+            sensitivity_blur_radius = st.slider(
+                "Sensitivity Blur Radius",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(METRICS_SENSITIVITY_BLUR_RADIUS_DEFAULT),
+                step=0.5,
+            )
 
     setup_footer_left, setup_footer_right = st.columns([0.72, 0.28], gap="medium")
     with setup_footer_left:
